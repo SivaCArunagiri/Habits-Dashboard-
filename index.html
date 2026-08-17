@@ -96,6 +96,20 @@
     </div>
   </section>
 
+  <section class="panel" aria-label="Supplements">
+    <div class="panel-header">
+      <h2>Supplements</h2>
+      <button type="button" id="add-supplement-btn" class="btn btn-secondary">+ Supplement</button>
+    </div>
+    <p class="field-hint">Tap a time of day to check it off. Tap the supplement to see history, adherence, and stock.</p>
+    <ul id="supplement-list" class="supplement-list"></ul>
+    <div id="supplement-empty-state" class="empty-state" hidden>
+      <p class="empty-state-title">No supplements yet</p>
+      <p class="empty-state-body">Add what you take and when — morning, evening, or a few times a day.</p>
+      <button type="button" id="supplement-empty-add-btn" class="btn btn-primary">+ Add a supplement</button>
+    </div>
+  </section>
+
   <section class="panel" aria-label="Yearly goals">
     <div class="panel-header">
       <h2>Yearly goals</h2>
@@ -351,6 +365,120 @@
       </div>
 
       <button type="button" id="yearly-edit-btn" class="btn btn-secondary btn-block">Edit goal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit supplement sheet -->
+<div id="supplement-form-sheet-backdrop" class="sheet-backdrop" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="supplement-form-sheet-title">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-header">
+      <h2 id="supplement-form-sheet-title">Add supplement</h2>
+      <button type="button" class="icon-btn sheet-close" data-close="supplement-form-sheet" aria-label="Close">✕</button>
+    </div>
+    <form id="supplement-form" class="sheet-body">
+      <label class="field">
+        <span class="field-label">Name</span>
+        <input type="text" id="supplement-name" maxlength="40" placeholder="Vitamin D3" required>
+      </label>
+
+      <div class="field">
+        <span class="field-label">Icon</span>
+        <div class="emoji-row" id="supplement-emoji-row"></div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Color</span>
+        <div class="color-row" id="supplement-color-row"></div>
+      </div>
+
+      <div class="field field-row">
+        <label class="field field-shrink">
+          <span class="field-label">Dose</span>
+          <input type="number" id="supplement-dose" min="0" step="any" inputmode="decimal" placeholder="2000">
+        </label>
+        <label class="field field-grow">
+          <span class="field-label">Unit</span>
+          <input type="text" id="supplement-unit" list="supplement-unit-options" maxlength="16" placeholder="mg, mcg, IU, capsule…">
+          <datalist id="supplement-unit-options">
+            <option value="mg"></option>
+            <option value="mcg"></option>
+            <option value="IU"></option>
+            <option value="g"></option>
+            <option value="mL"></option>
+            <option value="capsule"></option>
+            <option value="tablet"></option>
+            <option value="drop"></option>
+            <option value="scoop"></option>
+          </datalist>
+        </label>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Time of day</span>
+        <div class="day-row" id="supplement-time-row"></div>
+      </div>
+
+      <div class="field">
+        <label class="stock-toggle">
+          <input type="checkbox" id="supplement-stock-enabled">
+          <span>Track remaining stock</span>
+        </label>
+      </div>
+      <div class="field field-row" id="supplement-stock-row" hidden>
+        <label class="field field-grow">
+          <span class="field-label">Current count</span>
+          <input type="number" id="supplement-stock-count" min="0" step="1" inputmode="numeric" placeholder="60">
+        </label>
+      </div>
+
+      <input type="hidden" id="supplement-id">
+      <div class="sheet-actions">
+        <button type="button" id="delete-supplement-btn" class="btn btn-danger" hidden>Delete</button>
+        <button type="submit" class="btn btn-primary btn-block">Save supplement</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Supplement detail sheet -->
+<div id="supplement-detail-sheet-backdrop" class="sheet-backdrop" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="supplement-detail-sheet-title">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-header">
+      <h2 id="supplement-detail-sheet-title">Supplement</h2>
+      <button type="button" class="icon-btn sheet-close" data-close="supplement-detail-sheet" aria-label="Close">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="detail-stats" id="supplement-detail-stats"></div>
+
+      <div id="supplement-stock-panel" class="stock-panel" hidden>
+        <div>
+          <p class="field-label">Stock remaining</p>
+          <p class="stat-value" id="supplement-stock-value">–</p>
+          <p class="field-hint" id="supplement-stock-estimate"></p>
+        </div>
+        <div class="field-row">
+          <input type="number" id="supplement-stock-add" min="1" step="1" inputmode="numeric" class="day-editor-input" placeholder="30">
+          <button type="button" id="supplement-stock-add-btn" class="btn btn-secondary">Add stock</button>
+        </div>
+      </div>
+
+      <p class="field-hint">Tap any day below to log or correct that date.</p>
+      <div class="heatmap-scroll">
+        <div id="supplement-heatmap" class="heatmap" role="img" aria-label="Supplement adherence heatmap"></div>
+      </div>
+
+      <div id="supplement-day-editor" class="day-editor" hidden>
+        <div class="day-editor-head">
+          <span id="supplement-day-editor-date" class="day-editor-date"></span>
+          <button type="button" id="supplement-day-editor-close" class="icon-btn" aria-label="Close day editor">✕</button>
+        </div>
+        <div id="supplement-day-editor-slots" class="day-row"></div>
+      </div>
+
+      <button type="button" id="supplement-edit-btn" class="btn btn-secondary btn-block">Edit supplement</button>
     </div>
   </div>
 </div>

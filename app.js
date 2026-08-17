@@ -7,6 +7,13 @@
   const DAY_LABELS = ['S','M','T','W','T','F','S'];
   const WEEKS_OVERVIEW = 18;
   const WEEKS_DETAIL = 20;
+  const TIME_SLOTS = [
+    { key: 'morning', label: 'Morning' },
+    { key: 'afternoon', label: 'Afternoon' },
+    { key: 'evening', label: 'Evening' },
+    { key: 'bedtime', label: 'Bedtime' }
+  ];
+  const STOCK_LOW_DAYS = 7;
 
   /* ---------------- date helpers ---------------- */
   function todayDate() {
@@ -58,6 +65,7 @@
     return {
       version: 1, habits: [], logs: {}, notes: {}, habitNotes: {},
       yearlyHabits: [], yearlyLogs: {},
+      supplements: [], supplementLogs: {},
       settings: { theme: 'auto' }
     };
   }
@@ -75,6 +83,8 @@
         habitNotes: parsed.habitNotes && typeof parsed.habitNotes === 'object' ? parsed.habitNotes : {},
         yearlyHabits: Array.isArray(parsed.yearlyHabits) ? parsed.yearlyHabits : [],
         yearlyLogs: parsed.yearlyLogs && typeof parsed.yearlyLogs === 'object' ? parsed.yearlyLogs : {},
+        supplements: Array.isArray(parsed.supplements) ? parsed.supplements : [],
+        supplementLogs: parsed.supplementLogs && typeof parsed.supplementLogs === 'object' ? parsed.supplementLogs : {},
         settings: Object.assign({ theme: 'auto' }, parsed.settings || {})
       });
     } catch (e) {
@@ -177,6 +187,62 @@
     if (n <= 0) delete state.yearlyLogs[habit.id][year];
     else state.yearlyLogs[habit.id][year] = n;
     if (Object.keys(state.yearlyLogs[habit.id]).length === 0) delete state.yearlyLogs[habit.id];
+  }
+
+  /* ---------------- supplements ---------------- */
+  function activeSupplements() { return state.supplements.filter(s => !s.archived); }
+  function supplementSlots(supp) { return supp.times && supp.times.length ? supp.times : ['morning']; }
+  function getTakenSlots(supp, ds) {
+    const bucket = state.supplementLogs[supp.id];
+    return (bucket && bucket[ds]) || [];
+  }
+  function isSlotTaken(supp, ds, slot) { return getTakenSlots(supp, ds).includes(slot); }
+  function toggleSupplementSlot(supp, ds, slot) {
+    if (!state.supplementLogs[supp.id]) state.supplementLogs[supp.id] = {};
+    const bucket = state.supplementLogs[supp.id];
+    const taken = bucket[ds] || [];
+    const wasTaken = taken.includes(slot);
+    const next = wasTaken ? taken.filter(s => s !== slot) : [...taken, slot];
+    if (next.length) bucket[ds] = next; else delete bucket[ds];
+    if (Object.keys(bucket).length === 0) delete state.supplementLogs[supp.id];
+    if (supp.stockEnabled) {
+      const delta = wasTaken ? 1 : -1;
+      supp.stockRemaining = Math.max(0, (supp.stockRemaining || 0) + delta);
+    }
+  }
+  function supplementDoneForDay(supp, ds) {
+    const slots = supplementSlots(supp);
+    const taken = getTakenSlots(supp, ds);
+    return slots.every(s => taken.includes(s));
+  }
+  function supplementAdherencePct(supp, ds) {
+    const slots = supplementSlots(supp);
+    const taken = getTakenSlots(supp, ds).filter(s => slots.includes(s));
+    return slots.length ? Math.round((taken.length / slots.length) * 100) : 0;
+  }
+  function supplementFloorDate(supp) {
+    let min = supp.createdAt || todayStr();
+    const bucket = state.supplementLogs[supp.id];
+    if (bucket) for (const k in bucket) if (k < min) min = k;
+    return min;
+  }
+  function supplementStreak(supp, asOfStr) {
+    const floor = supplementFloorDate(supp);
+    let cursor = asOfStr ? parseLocal(asOfStr) : todayDate();
+    if (!supplementDoneForDay(supp, fmt(cursor))) cursor = addDays(cursor, -1);
+    let count = 0, guard = 0;
+    while (fmt(cursor) >= floor && guard < 20000) {
+      guard++;
+      const ds = fmt(cursor);
+      if (supplementDoneForDay(supp, ds)) { count++; cursor = addDays(cursor, -1); }
+      else break;
+    }
+    return count;
+  }
+  function supplementDaysRemaining(supp) {
+    if (!supp.stockEnabled) return null;
+    const perDay = supplementSlots(supp).length || 1;
+    return Math.floor((supp.stockRemaining || 0) / perDay);
   }
 
   /* ---------------- daily notes ---------------- */
@@ -455,11 +521,80 @@
     });
   }
 
+  /* ---------------- rendering: supplements ---------------- */
+  function renderSupplementList() {
+    const list = $('#supplement-list');
+    const supplements = activeSupplements();
+    list.innerHTML = '';
+    $('#supplement-empty-state').hidden = supplements.length > 0;
+    list.hidden = supplements.length === 0;
+    const ds = todayStr();
+
+    supplements.forEach(supp => {
+      const li = document.createElement('li');
+      li.className = 'supplement-card';
+      li.style.setProperty('--habit-color', habitColorVar(supp));
+
+      const top = document.createElement('div');
+      top.className = 'supplement-top';
+
+      const icon = document.createElement('div');
+      icon.className = 'habit-icon';
+      icon.textContent = supp.emoji || '💊';
+      icon.addEventListener('click', () => openSupplementDetail(supp.id));
+
+      const main = document.createElement('div');
+      main.className = 'habit-main';
+      main.addEventListener('click', () => openSupplementDetail(supp.id));
+
+      const name = document.createElement('p');
+      name.className = 'habit-name';
+      name.textContent = supp.name;
+
+      const meta = document.createElement('p');
+      meta.className = 'habit-meta';
+      const doseText = supp.dose ? `${supp.dose}${supp.unit ? ' ' + supp.unit : ''}` : (supp.unit || '');
+      const streak = supplementStreak(supp);
+      const metaParts = [];
+      if (doseText) metaParts.push(doseText);
+      metaParts.push(streak > 0 ? `🔥 ${streak}d streak` : 'No streak yet');
+      meta.textContent = metaParts.join(' · ');
+      main.append(name, meta);
+
+      top.append(icon, main);
+
+      const slotRow = document.createElement('div');
+      slotRow.className = 'slot-row';
+      supplementSlots(supp).forEach(slotKey => {
+        const slotDef = TIME_SLOTS.find(t => t.key === slotKey);
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'slot-chip' + (isSlotTaken(supp, ds, slotKey) ? ' taken' : '');
+        chip.textContent = slotDef ? slotDef.label : slotKey;
+        chip.addEventListener('click', () => { toggleSupplementSlot(supp, ds, slotKey); saveState(); renderSupplementList(); });
+        slotRow.appendChild(chip);
+      });
+
+      li.append(top, slotRow);
+
+      if (supp.stockEnabled) {
+        const daysLeft = supplementDaysRemaining(supp);
+        const stockLine = document.createElement('p');
+        stockLine.className = 'stock-line' + (daysLeft !== null && daysLeft <= STOCK_LOW_DAYS ? ' low' : '');
+        stockLine.textContent = `${supp.stockRemaining || 0} dose${supp.stockRemaining === 1 ? '' : 's'} left · ~${daysLeft} day${daysLeft === 1 ? '' : 's'}`;
+        li.appendChild(stockLine);
+      }
+
+      list.appendChild(li);
+    });
+  }
+
   function renderAll() {
     renderStats();
     renderOverviewHeatmap();
     renderHabitList();
     renderYearlyList();
+    renderSupplementList();
   }
 
   /* ---------------- sheets ---------------- */
@@ -761,6 +896,263 @@
     const habit = state.yearlyHabits.find(h => h.id === detailYearlyId);
     closeSheet('yearly-detail-sheet');
     openEditYearly(habit);
+  });
+
+  /* ---------------- supplement form (add / edit) ---------------- */
+  let editingSupplementId = null;
+  let supplementFormEmoji = '💊';
+  let supplementFormColor = 1;
+  let supplementFormTimes = ['morning'];
+
+  function buildSupplementEmojiRow() {
+    const row = $('#supplement-emoji-row');
+    row.innerHTML = '';
+    EMOJI_PRESETS.forEach(e => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'emoji-choice' + (e === supplementFormEmoji ? ' selected' : '');
+      btn.textContent = e;
+      btn.addEventListener('click', () => { supplementFormEmoji = e; buildSupplementEmojiRow(); });
+      row.appendChild(btn);
+    });
+  }
+  function buildSupplementColorRow() {
+    const row = $('#supplement-color-row');
+    row.innerHTML = '';
+    COLOR_SLOTS.forEach(c => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'color-choice' + (c === supplementFormColor ? ' selected' : '');
+      btn.style.setProperty('--swatch-color', `var(--series-${c})`);
+      btn.setAttribute('aria-label', `Color ${c}`);
+      btn.addEventListener('click', () => { supplementFormColor = c; buildSupplementColorRow(); });
+      row.appendChild(btn);
+    });
+  }
+  function buildSupplementTimeRow() {
+    const row = $('#supplement-time-row');
+    row.innerHTML = '';
+    TIME_SLOTS.forEach(slot => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'day-choice wide' + (supplementFormTimes.includes(slot.key) ? ' selected' : '');
+      btn.textContent = slot.label;
+      btn.addEventListener('click', () => {
+        if (supplementFormTimes.includes(slot.key)) supplementFormTimes = supplementFormTimes.filter(k => k !== slot.key);
+        else supplementFormTimes = [...supplementFormTimes, slot.key];
+        buildSupplementTimeRow();
+      });
+      row.appendChild(btn);
+    });
+  }
+
+  $('#supplement-stock-enabled').addEventListener('change', e => {
+    $('#supplement-stock-row').hidden = !e.target.checked;
+  });
+
+  function resetSupplementForm() {
+    editingSupplementId = null;
+    supplementFormEmoji = '💊';
+    supplementFormColor = COLOR_SLOTS[state.supplements.length % COLOR_SLOTS.length];
+    supplementFormTimes = ['morning'];
+    $('#supplement-name').value = '';
+    $('#supplement-dose').value = '';
+    $('#supplement-unit').value = '';
+    $('#supplement-stock-enabled').checked = false;
+    $('#supplement-stock-row').hidden = true;
+    $('#supplement-stock-count').value = '';
+    $('#supplement-id').value = '';
+    $('#delete-supplement-btn').hidden = true;
+    $('#supplement-form-sheet-title').textContent = 'Add supplement';
+    buildSupplementEmojiRow(); buildSupplementColorRow(); buildSupplementTimeRow();
+  }
+
+  function openAddSupplement() { resetSupplementForm(); openSheet('supplement-form-sheet'); $('#supplement-name').focus(); }
+
+  function openEditSupplement(supp) {
+    editingSupplementId = supp.id;
+    supplementFormEmoji = supp.emoji;
+    supplementFormColor = supp.color;
+    supplementFormTimes = [...supplementSlots(supp)];
+    $('#supplement-name').value = supp.name;
+    $('#supplement-dose').value = supp.dose || '';
+    $('#supplement-unit').value = supp.unit || '';
+    $('#supplement-stock-enabled').checked = !!supp.stockEnabled;
+    $('#supplement-stock-row').hidden = !supp.stockEnabled;
+    $('#supplement-stock-count').value = supp.stockEnabled ? (supp.stockRemaining || 0) : '';
+    $('#supplement-id').value = supp.id;
+    $('#delete-supplement-btn').hidden = false;
+    $('#supplement-form-sheet-title').textContent = 'Edit supplement';
+    buildSupplementEmojiRow(); buildSupplementColorRow(); buildSupplementTimeRow();
+    openSheet('supplement-form-sheet');
+  }
+
+  $('#supplement-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const name = $('#supplement-name').value.trim();
+    if (!name) return;
+    if (supplementFormTimes.length === 0) { showToast('Pick at least one time of day'); return; }
+    const dose = $('#supplement-dose').value === '' ? null : Number($('#supplement-dose').value);
+    const unit = $('#supplement-unit').value.trim();
+    const stockEnabled = $('#supplement-stock-enabled').checked;
+    const stockRemaining = stockEnabled ? Math.max(0, parseInt($('#supplement-stock-count').value, 10) || 0) : 0;
+
+    if (editingSupplementId) {
+      const s = state.supplements.find(s => s.id === editingSupplementId);
+      Object.assign(s, { name, emoji: supplementFormEmoji, color: supplementFormColor, dose, unit, times: [...supplementFormTimes], stockEnabled });
+      if (stockEnabled) s.stockRemaining = stockRemaining;
+    } else {
+      const supp = {
+        id: 'sp_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        name, emoji: supplementFormEmoji, color: supplementFormColor, dose, unit,
+        times: [...supplementFormTimes], stockEnabled,
+        createdAt: todayStr(), archived: false
+      };
+      if (stockEnabled) supp.stockRemaining = stockRemaining;
+      state.supplements.push(supp);
+    }
+    saveState();
+    closeSheet('supplement-form-sheet');
+    renderSupplementList();
+  });
+
+  $('#delete-supplement-btn').addEventListener('click', () => {
+    if (!editingSupplementId) return;
+    if (!confirm('Delete this supplement and all of its history?')) return;
+    state.supplements = state.supplements.filter(s => s.id !== editingSupplementId);
+    delete state.supplementLogs[editingSupplementId];
+    saveState();
+    closeSheet('supplement-form-sheet');
+    renderSupplementList();
+  });
+
+  $('#add-supplement-btn').addEventListener('click', openAddSupplement);
+  $('#supplement-empty-add-btn').addEventListener('click', openAddSupplement);
+
+  /* ---------------- supplement detail sheet ---------------- */
+  let detailSupplementId = null;
+  let selectedSupplementDate = null;
+  const WEEKS_SUPPLEMENT = 20;
+
+  function openSupplementDetail(id) {
+    detailSupplementId = id;
+    selectedSupplementDate = null;
+    $('#supplement-day-editor').hidden = true;
+    renderSupplementDetail();
+    openSheet('supplement-detail-sheet');
+  }
+
+  function renderSupplementDetail() {
+    const supp = state.supplements.find(s => s.id === detailSupplementId);
+    if (!supp) return;
+    $('#supplement-detail-sheet-title').textContent = `${supp.emoji || '💊'} ${supp.name}`;
+
+    const streak = supplementStreak(supp);
+    const bucket = state.supplementLogs[supp.id] || {};
+    const totalDoses = Object.values(bucket).reduce((sum, arr) => sum + arr.length, 0);
+    let sum7 = 0;
+    for (let i = 0; i < 7; i++) sum7 += supplementAdherencePct(supp, fmt(addDays(todayDate(), -i)));
+    const adherence7 = Math.round(sum7 / 7);
+
+    const stats = $('#supplement-detail-stats');
+    stats.innerHTML = '';
+    [['Current streak', streak ? streak + 'd' : '—'], ['7-day adherence', `${adherence7}%`], ['Doses logged', String(totalDoses)]]
+      .forEach(([label, value]) => {
+        const div = document.createElement('div');
+        div.className = 'detail-stat';
+        div.innerHTML = `<p class="stat-label">${label}</p><p class="stat-value">${value}</p>`;
+        stats.appendChild(div);
+      });
+
+    const stockPanel = $('#supplement-stock-panel');
+    if (supp.stockEnabled) {
+      stockPanel.hidden = false;
+      $('#supplement-stock-value').textContent = String(supp.stockRemaining || 0);
+      const daysLeft = supplementDaysRemaining(supp);
+      $('#supplement-stock-estimate').textContent = `About ${daysLeft} day${daysLeft === 1 ? '' : 's'} left at your current schedule`;
+    } else {
+      stockPanel.hidden = true;
+    }
+
+    const container = $('#supplement-heatmap');
+    container.innerHTML = '';
+    container.style.setProperty('--habit-color', habitColorVar(supp));
+    const today = todayDate();
+    const end = startOfWeek(today);
+    const totalDays = WEEKS_SUPPLEMENT * 7;
+    const start = addDays(end, -(totalDays - 7));
+
+    for (let d = new Date(start); d < addDays(end, 7); d = addDays(d, 1)) {
+      const ds = fmt(d);
+      const cell = document.createElement('div');
+      cell.className = 'heatmap-cell';
+      if (d > today) {
+        cell.classList.add('future');
+      } else {
+        const pct = supplementAdherencePct(supp, ds) / 100;
+        if (pct >= 1) cell.style.background = habitColorVar(supp);
+        else if (pct > 0) cell.style.background = `color-mix(in srgb, ${habitColorVar(supp)} ${Math.round(pct * 70) + 15}%, var(--surface-2))`;
+        if (ds === todayStr()) cell.classList.add('today');
+        if (ds === selectedSupplementDate) cell.classList.add('selected');
+        cell.classList.add('clickable');
+        const taken = getTakenSlots(supp, ds);
+        const label = taken.length ? taken.map(k => (TIME_SLOTS.find(t => t.key === k) || {}).label || k).join(', ') : 'None taken';
+        cell.title = `${humanDate(ds)} · ${label}`;
+        cell.addEventListener('click', () => openSupplementDayEditor(supp, ds));
+      }
+      container.appendChild(cell);
+    }
+    requestAnimationFrame(() => {
+      const scroller = container.parentElement;
+      scroller.scrollLeft = scroller.scrollWidth;
+    });
+  }
+
+  function openSupplementDayEditor(supp, ds) {
+    selectedSupplementDate = ds;
+    renderSupplementDetail();
+    $('#supplement-day-editor').hidden = false;
+    $('#supplement-day-editor-date').textContent = humanDate(ds);
+    const row = $('#supplement-day-editor-slots');
+    row.innerHTML = '';
+    supplementSlots(supp).forEach(slotKey => {
+      const slotDef = TIME_SLOTS.find(t => t.key === slotKey);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'day-choice wide' + (isSlotTaken(supp, ds, slotKey) ? ' selected' : '');
+      btn.textContent = slotDef ? slotDef.label : slotKey;
+      btn.addEventListener('click', () => {
+        toggleSupplementSlot(supp, ds, slotKey);
+        saveState();
+        openSupplementDayEditor(supp, ds);
+        renderSupplementList();
+      });
+      row.appendChild(btn);
+    });
+  }
+  $('#supplement-day-editor-close').addEventListener('click', () => {
+    $('#supplement-day-editor').hidden = true;
+    selectedSupplementDate = null;
+    renderSupplementDetail();
+  });
+
+  $('#supplement-stock-add-btn').addEventListener('click', () => {
+    const supp = state.supplements.find(s => s.id === detailSupplementId);
+    if (!supp) return;
+    const add = parseInt($('#supplement-stock-add').value, 10);
+    if (!add || add <= 0) { showToast('Enter how many doses you added'); return; }
+    supp.stockRemaining = (supp.stockRemaining || 0) + add;
+    $('#supplement-stock-add').value = '';
+    saveState();
+    renderSupplementDetail();
+    renderSupplementList();
+    showToast('Stock updated');
+  });
+
+  $('#supplement-edit-btn').addEventListener('click', () => {
+    const supp = state.supplements.find(s => s.id === detailSupplementId);
+    closeSheet('supplement-detail-sheet');
+    openEditSupplement(supp);
   });
 
   /* ---------------- detail sheet ---------------- */
@@ -1180,6 +1572,11 @@
         (parsed.yearlyHabits || []).forEach(h => { if (!existingYearlyIds.has(h.id)) state.yearlyHabits.push(h); });
         Object.keys(parsed.yearlyLogs || {}).forEach(hid => {
           state.yearlyLogs[hid] = Object.assign(state.yearlyLogs[hid] || {}, parsed.yearlyLogs[hid]);
+        });
+        const existingSupplementIds = new Set(state.supplements.map(s => s.id));
+        (parsed.supplements || []).forEach(s => { if (!existingSupplementIds.has(s.id)) state.supplements.push(s); });
+        Object.keys(parsed.supplementLogs || {}).forEach(sid => {
+          state.supplementLogs[sid] = Object.assign(state.supplementLogs[sid] || {}, parsed.supplementLogs[sid]);
         });
       } else {
         state = Object.assign(defaultState(), parsed);

@@ -362,6 +362,47 @@ input { font: inherit; }
 }
 .yearly-history-row:last-child { border-bottom: none; }
 
+/* ---------- supplements ---------- */
+.supplement-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.supplement-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.supplement-top { display: flex; align-items: center; gap: 12px; }
+.slot-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.slot-chip {
+  border: 1px solid var(--border-strong);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.slot-chip.taken { background: var(--habit-color); border-color: var(--habit-color); color: #fff; }
+.stock-line { font-size: 12.5px; color: var(--text-secondary); }
+.stock-line.low { color: var(--critical); font-weight: 600; }
+.stock-toggle { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.stock-toggle input { width: 18px; height: 18px; }
+.stock-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  padding: 12px 14px;
+}
+.stock-panel .stat-value { margin-top: 2px; }
+
 .check-toggle {
   width: 34px; height: 34px;
   border-radius: 50%;
@@ -538,6 +579,7 @@ input:focus { outline: 2px solid var(--series-1); outline-offset: 1px; }
 .color-choice.selected { outline: 2px solid var(--text-primary); outline-offset: 2px; }
 .day-choice { border-radius: 10px; font-size: 12.5px; font-weight: 700; }
 .day-choice.selected { background: var(--series-1); border-color: var(--series-1); color: #fff; }
+.day-choice.wide { width: auto; height: auto; padding: 8px 14px; }
 
 .segmented { display: flex; border: 1px solid var(--border-strong); border-radius: 10px; overflow: hidden; }
 .segmented-btn { flex: 1; padding: 9px 10px; background: var(--surface-2); border: none; font-size: 13.5px; font-weight: 600; cursor: pointer; border-right: 1px solid var(--border); }
