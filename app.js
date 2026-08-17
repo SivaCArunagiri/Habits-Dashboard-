@@ -45,12 +45,17 @@
     let t;
     return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
   }
+  function wireNoteInput(el, save) {
+    const flush = () => save(el.value);
+    el.addEventListener('input', debounce(flush, 400));
+    el.addEventListener('blur', flush);
+  }
 
   /* ---------------- state ---------------- */
   let state = loadState();
 
   function defaultState() {
-    return { version: 1, habits: [], logs: {}, notes: {}, settings: { theme: 'auto' } };
+    return { version: 1, habits: [], logs: {}, notes: {}, habitNotes: {}, settings: { theme: 'auto' } };
   }
 
   function loadState() {
@@ -63,6 +68,7 @@
         habits: Array.isArray(parsed.habits) ? parsed.habits : [],
         logs: parsed.logs && typeof parsed.logs === 'object' ? parsed.logs : {},
         notes: parsed.notes && typeof parsed.notes === 'object' ? parsed.notes : {},
+        habitNotes: parsed.habitNotes && typeof parsed.habitNotes === 'object' ? parsed.habitNotes : {},
         settings: Object.assign({ theme: 'auto' }, parsed.settings || {})
       });
     } catch (e) {
@@ -157,6 +163,19 @@
   function setNote(ds, text) {
     if ((text || '').trim()) state.notes[ds] = text;
     else delete state.notes[ds];
+  }
+  function getHabitNote(habitId, ds) {
+    const bucket = state.habitNotes[habitId];
+    return (bucket && bucket[ds]) || '';
+  }
+  function setHabitNote(habitId, ds, text) {
+    if ((text || '').trim()) {
+      if (!state.habitNotes[habitId]) state.habitNotes[habitId] = {};
+      state.habitNotes[habitId][ds] = text;
+    } else if (state.habitNotes[habitId]) {
+      delete state.habitNotes[habitId][ds];
+      if (Object.keys(state.habitNotes[habitId]).length === 0) delete state.habitNotes[habitId];
+    }
   }
 
   /* ---------------- trend data ---------------- */
@@ -648,6 +667,11 @@
         saveState(); renderDetail(); renderAll();
       };
     }
+    const noteInput = $('#day-editor-note');
+    noteInput.value = getHabitNote(habit.id, ds);
+    const flushNote = debounce(() => { setHabitNote(habit.id, ds, noteInput.value); saveState(); }, 400);
+    noteInput.oninput = flushNote;
+    noteInput.onblur = () => { setHabitNote(habit.id, ds, noteInput.value); saveState(); };
   }
   $('#day-editor-close').addEventListener('click', () => { $('#day-editor').hidden = true; selectedDetailDate = null; renderDetail(); });
 
@@ -712,8 +736,11 @@
     list.innerHTML = '';
     habits.forEach(habit => {
       const li = document.createElement('li');
-      li.className = 'habit-row';
+      li.className = 'day-habit-card';
       li.style.setProperty('--habit-color', habitColorVar(habit));
+
+      const top = document.createElement('div');
+      top.className = 'day-habit-top';
 
       const icon = document.createElement('div');
       icon.className = 'habit-icon';
@@ -756,18 +783,27 @@
         control.appendChild(btn);
       }
 
-      li.append(icon, main, control);
+      top.append(icon, main, control);
+
+      const noteInput = document.createElement('input');
+      noteInput.type = 'text';
+      noteInput.className = 'habit-note-input';
+      noteInput.placeholder = `Note about ${habit.name}…`;
+      noteInput.value = getHabitNote(habit.id, ds);
+      wireNoteInput(noteInput, val => { setHabitNote(habit.id, ds, val); saveState(); });
+
+      li.append(top, noteInput);
       list.appendChild(li);
     });
 
     $('#day-sheet-note').value = getNote(ds);
   }
 
-  $('#day-sheet-note').addEventListener('input', debounce(() => {
+  wireNoteInput($('#day-sheet-note'), val => {
     if (!currentDaySheetDate) return;
-    setNote(currentDaySheetDate, $('#day-sheet-note').value);
+    setNote(currentDaySheetDate, val);
     saveState();
-  }, 400));
+  });
 
   $('#day-sheet-share-btn').addEventListener('click', () => shareDay(currentDaySheetDate));
 
@@ -801,6 +837,8 @@
         line += ` — ${v}/${h.target}${h.unit ? ' ' + h.unit : ''}`;
       }
       lines.push(line);
+      const habitNote = getHabitNote(h.id, ds);
+      if (habitNote.trim()) lines.push(`   ↳ ${habitNote.trim()}`);
     });
     if (habits.length) {
       lines.push('');
@@ -882,6 +920,9 @@
           state.logs[hid] = Object.assign(state.logs[hid] || {}, parsed.logs[hid]);
         });
         Object.assign(state.notes, parsed.notes || {});
+        Object.keys(parsed.habitNotes || {}).forEach(hid => {
+          state.habitNotes[hid] = Object.assign(state.habitNotes[hid] || {}, parsed.habitNotes[hid]);
+        });
       } else {
         state = Object.assign(defaultState(), parsed);
       }

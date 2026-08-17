@@ -304,6 +304,29 @@ input { font: inherit; }
 .strip-cell { width: 14px; height: 14px; border-radius: 4px; background: var(--gridline); }
 
 .habit-control { flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
+
+/* ---------- day sheet habit cards (with per-habit note) ---------- */
+.day-habit-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.day-habit-top { display: flex; align-items: center; gap: 12px; }
+.habit-note-input {
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-1);
+  border-radius: 9px;
+  padding: 8px 10px;
+  font-size: 13.5px;
+  color: var(--text-primary);
+  font-family: inherit;
+}
+.habit-note-input:focus { outline: 2px solid var(--series-1); outline-offset: 1px; }
 .check-toggle {
   width: 34px; height: 34px;
   border-radius: 50%;
@@ -496,6 +519,7 @@ input:focus { outline: 2px solid var(--series-1); outline-offset: 1px; }
 .day-editor-date { font-weight: 700; font-size: 14px; }
 .day-editor-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .day-editor-input { width: 90px; border: 1px solid var(--border-strong); border-radius: 9px; padding: 8px 10px; background: var(--surface-1); color: var(--text-primary); }
+.day-editor-note-input { width: 100%; flex: 1; min-width: 160px; }
 
 /* ---------- backfill ---------- */
 .backfill { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 14px; }
