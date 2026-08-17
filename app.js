@@ -1082,7 +1082,7 @@
     habits.forEach(h => {
       const done = isDone(h, ds);
       if (done) doneCount++;
-      let line = `${done ? '✅' : '▫️'} ${h.name}`;
+      let line = `${done ? (h.emoji || '✅') : '▫️'} ${h.name}`;
       if (h.type === 'count') {
         const v = Number(getRaw(h, ds)) || 0;
         line += ` — ${v}/${h.target}${h.unit ? ' ' + h.unit : ''}`;
