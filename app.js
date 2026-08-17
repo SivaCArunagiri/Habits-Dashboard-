@@ -122,9 +122,9 @@
     }
     return min;
   }
-  function currentStreak(habit) {
+  function currentStreak(habit, asOfStr) {
     const floor = floorDate(habit);
-    let cursor = todayDate();
+    let cursor = asOfStr ? parseLocal(asOfStr) : todayDate();
     let cStr = fmt(cursor);
     if (isScheduled(habit, cStr) && !isDone(habit, cStr)) {
       cursor = addDays(cursor, -1);
@@ -836,6 +836,8 @@
         const v = Number(getRaw(h, ds)) || 0;
         line += ` — ${v}/${h.target}${h.unit ? ' ' + h.unit : ''}`;
       }
+      const streak = currentStreak(h, ds);
+      line += streak > 0 ? ` · 🔥 ${streak}d streak` : ' · no streak';
       lines.push(line);
       const habitNote = getHabitNote(h.id, ds);
       if (habitNote.trim()) lines.push(`   ↳ ${habitNote.trim()}`);
