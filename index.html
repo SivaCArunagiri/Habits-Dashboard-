@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Habits</title>
+<meta name="description" content="A simple habit-tracking dashboard that works on iPhone, iPad, and Mac.">
+
+<!-- PWA / installability -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fcfcfb">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1a1a19">
+
+<!-- iOS home-screen app behavior -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Habits">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+<link rel="icon" href="icons/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="install-tip" class="install-tip" hidden>
+  <p id="install-tip-text"></p>
+  <button type="button" id="install-tip-dismiss" class="icon-btn" aria-label="Dismiss">✕</button>
+</div>
+
+<header class="app-header">
+  <div class="app-header-title">
+    <span class="app-logo" aria-hidden="true">✓</span>
+    <div>
+      <h1>Habits</h1>
+      <p id="today-label" class="app-subtitle"></p>
+    </div>
+  </div>
+  <div class="app-header-actions">
+    <button type="button" id="settings-btn" class="icon-btn" aria-label="Settings">⚙</button>
+    <button type="button" id="add-habit-btn" class="btn btn-primary">+ Habit</button>
+  </div>
+</header>
+
+<main class="dashboard">
+
+  <section class="stat-grid" aria-label="Summary">
+    <div class="stat-tile">
+      <p class="stat-label">Today</p>
+      <p class="stat-value" id="stat-today">–</p>
+    </div>
+    <div class="stat-tile">
+      <p class="stat-label">This week</p>
+      <p class="stat-value" id="stat-week">–</p>
+    </div>
+    <div class="stat-tile">
+      <p class="stat-label">Longest active streak</p>
+      <p class="stat-value" id="stat-streak">–</p>
+    </div>
+    <div class="stat-tile">
+      <p class="stat-label">Habits tracked</p>
+      <p class="stat-value" id="stat-count">–</p>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Consistency overview">
+    <div class="panel-header">
+      <h2>Consistency</h2>
+      <div class="heatmap-legend" aria-hidden="true">
+        <span>Less</span>
+        <span class="legend-swatch" data-step="0"></span>
+        <span class="legend-swatch" data-step="1"></span>
+        <span class="legend-swatch" data-step="2"></span>
+        <span class="legend-swatch" data-step="3"></span>
+        <span class="legend-swatch" data-step="4"></span>
+        <span>More</span>
+      </div>
+    </div>
+    <div class="heatmap-scroll">
+      <div id="overview-heatmap" class="heatmap" role="img" aria-label="Daily completion heatmap"></div>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Your habits">
+    <div class="panel-header">
+      <h2>Your habits</h2>
+    </div>
+    <ul id="habit-list" class="habit-list"></ul>
+    <div id="empty-state" class="empty-state" hidden>
+      <p class="empty-state-title">No habits yet</p>
+      <p class="empty-state-body">Add your first habit to start building your streak.</p>
+      <button type="button" id="empty-add-btn" class="btn btn-primary">+ Add a habit</button>
+    </div>
+  </section>
+
+</main>
+
+<!-- Add / Edit habit sheet -->
+<div id="habit-sheet-backdrop" class="sheet-backdrop" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="habit-sheet-title">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-header">
+      <h2 id="habit-sheet-title">Add habit</h2>
+      <button type="button" class="icon-btn sheet-close" data-close="habit-sheet" aria-label="Close">✕</button>
+    </div>
+    <form id="habit-form" class="sheet-body">
+      <label class="field">
+        <span class="field-label">Name</span>
+        <input type="text" id="habit-name" maxlength="40" placeholder="Drink water" required>
+      </label>
+
+      <div class="field">
+        <span class="field-label">Icon</span>
+        <div class="emoji-row" id="emoji-row"></div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Color</span>
+        <div class="color-row" id="color-row"></div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Track it as</span>
+        <div class="segmented" id="type-segmented">
+          <button type="button" data-type-choice="check" class="segmented-btn">Yes / no</button>
+          <button type="button" data-type-choice="count" class="segmented-btn">Quantity</button>
+        </div>
+      </div>
+
+      <div class="field field-row" id="target-row" hidden>
+        <label class="field field-shrink">
+          <span class="field-label">Daily target</span>
+          <input type="number" id="habit-target" min="1" step="1" inputmode="numeric" placeholder="8">
+        </label>
+        <label class="field field-grow">
+          <span class="field-label">Unit</span>
+          <input type="text" id="habit-unit" maxlength="16" placeholder="glasses, min, pages…">
+        </label>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Repeat</span>
+        <div class="day-row" id="day-row"></div>
+      </div>
+
+      <input type="hidden" id="habit-id">
+      <div class="sheet-actions">
+        <button type="button" id="delete-habit-btn" class="btn btn-danger" hidden>Delete</button>
+        <button type="submit" class="btn btn-primary btn-block">Save habit</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Habit detail sheet (expanded heatmap) -->
+<div id="detail-sheet-backdrop" class="sheet-backdrop" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="detail-sheet-title">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-header">
+      <h2 id="detail-sheet-title">Habit</h2>
+      <button type="button" class="icon-btn sheet-close" data-close="detail-sheet" aria-label="Close">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="detail-stats" id="detail-stats"></div>
+      <p class="field-hint">Tap any day below to log or correct that date.</p>
+      <div class="heatmap-scroll">
+        <div id="detail-heatmap" class="heatmap" role="img" aria-label="Habit completion heatmap"></div>
+      </div>
+
+      <div id="day-editor" class="day-editor" hidden>
+        <div class="day-editor-head">
+          <span id="day-editor-date" class="day-editor-date"></span>
+          <button type="button" id="day-editor-close" class="icon-btn" aria-label="Close day editor">✕</button>
+        </div>
+        <div id="day-editor-check" class="day-editor-row" hidden>
+          <button type="button" id="day-editor-mark-done" class="btn btn-secondary">Mark done</button>
+          <button type="button" id="day-editor-mark-undone" class="btn btn-secondary">Mark not done</button>
+        </div>
+        <div id="day-editor-count" class="day-editor-row" hidden>
+          <input type="number" id="day-editor-value" min="0" step="1" inputmode="numeric" class="day-editor-input">
+          <span id="day-editor-unit" class="field-hint"></span>
+          <button type="button" id="day-editor-save" class="btn btn-secondary">Save</button>
+        </div>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <details class="backfill">
+        <summary>Log past dates in bulk</summary>
+        <p class="field-hint">Been doing this a while? Fill in a whole date range at once instead of tapping every day.</p>
+        <div class="field-row">
+          <label class="field field-shrink">
+            <span class="field-label">From</span>
+            <input type="date" id="backfill-start">
+          </label>
+          <label class="field field-shrink">
+            <span class="field-label">To</span>
+            <input type="date" id="backfill-end">
+          </label>
+        </div>
+        <div class="field field-row" id="backfill-value-row" hidden>
+          <label class="field field-grow">
+            <span class="field-label">Value per day</span>
+            <input type="number" id="backfill-value" min="0" step="1" inputmode="numeric">
+          </label>
+        </div>
+        <div class="settings-row">
+          <button type="button" id="backfill-apply-btn" class="btn btn-secondary">Mark scheduled days done</button>
+          <button type="button" id="backfill-clear-btn" class="btn btn-secondary">Clear range</button>
+        </div>
+      </details>
+
+      <button type="button" id="detail-edit-btn" class="btn btn-secondary btn-block">Edit habit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings sheet -->
+<div id="settings-sheet-backdrop" class="sheet-backdrop" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-sheet-title">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-header">
+      <h2 id="settings-sheet-title">Settings</h2>
+      <button type="button" class="icon-btn sheet-close" data-close="settings-sheet" aria-label="Close">✕</button>
+    </div>
+    <div class="sheet-body">
+
+      <div class="field">
+        <span class="field-label">Appearance</span>
+        <div class="segmented" id="theme-segmented">
+          <button type="button" data-theme-choice="auto" class="segmented-btn">Auto</button>
+          <button type="button" data-theme-choice="light" class="segmented-btn">Light</button>
+          <button type="button" data-theme-choice="dark" class="segmented-btn">Dark</button>
+        </div>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <div class="field">
+        <span class="field-label">Sync across your devices</span>
+        <p class="field-hint">This dashboard installs on each device separately and stores data on that device only. To carry your habits and history from one device to another: export a backup file, then import it on the other device. Saving the file to iCloud Drive (or AirDropping it) keeps a copy handy on all your devices.</p>
+      </div>
+
+      <div class="settings-row">
+        <button type="button" id="export-btn" class="btn btn-secondary">Export backup</button>
+        <button type="button" id="import-btn" class="btn btn-secondary">Import backup</button>
+        <input type="file" id="import-input" accept="application/json" hidden>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <button type="button" id="reset-btn" class="btn btn-danger btn-block">Erase all data on this device</button>
+
+      <p class="field-hint app-version">Habits Dashboard · installs from this page on iPhone, iPad, and Mac</p>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
