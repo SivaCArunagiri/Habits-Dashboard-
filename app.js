@@ -33,16 +33,24 @@
     const d = parseLocal(str);
     return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   }
+  function humanDateLong(str) {
+    const d = parseLocal(str);
+    return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  }
   function startOfWeek(date) {
     const dow = date.getDay();
     return addDays(date, -dow);
+  }
+  function debounce(fn, wait) {
+    let t;
+    return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
   }
 
   /* ---------------- state ---------------- */
   let state = loadState();
 
   function defaultState() {
-    return { version: 1, habits: [], logs: {}, settings: { theme: 'auto' } };
+    return { version: 1, habits: [], logs: {}, notes: {}, settings: { theme: 'auto' } };
   }
 
   function loadState() {
@@ -54,6 +62,7 @@
       return Object.assign(defaultState(), parsed, {
         habits: Array.isArray(parsed.habits) ? parsed.habits : [],
         logs: parsed.logs && typeof parsed.logs === 'object' ? parsed.logs : {},
+        notes: parsed.notes && typeof parsed.notes === 'object' ? parsed.notes : {},
         settings: Object.assign({ theme: 'auto' }, parsed.settings || {})
       });
     } catch (e) {
@@ -143,6 +152,40 @@
   }
   function activeHabits() { return state.habits.filter(h => !h.archived); }
 
+  /* ---------------- daily notes ---------------- */
+  function getNote(ds) { return state.notes[ds] || ''; }
+  function setNote(ds, text) {
+    if ((text || '').trim()) state.notes[ds] = text;
+    else delete state.notes[ds];
+  }
+
+  /* ---------------- trend data ---------------- */
+  function computeWeeklyCompletion(habit, weeksCount) {
+    const thisWeekStart = startOfWeek(todayDate());
+    const weeks = [];
+    for (let i = weeksCount - 1; i >= 0; i--) {
+      const weekStart = addDays(thisWeekStart, -7 * i);
+      const cap = addDays(weekStart, 6) > todayDate() ? todayDate() : addDays(weekStart, 6);
+      let scheduled = 0, done = 0;
+      for (let d = new Date(weekStart); d <= cap; d = addDays(d, 1)) {
+        const ds = fmt(d);
+        if (isScheduled(habit, ds)) { scheduled++; if (isDone(habit, ds)) done++; }
+      }
+      weeks.push({ weekStart: fmt(weekStart), scheduled, done, pct: scheduled ? Math.round((done / scheduled) * 100) : null });
+    }
+    return weeks;
+  }
+  function computeDailyValues(habit, daysCount) {
+    const days = [];
+    for (let i = daysCount - 1; i >= 0; i--) {
+      const d = addDays(todayDate(), -i);
+      const ds = fmt(d);
+      if (!isScheduled(habit, ds)) continue;
+      days.push({ ds, value: Number(getRaw(habit, ds)) || 0 });
+    }
+    return days;
+  }
+
   /* ---------------- stats ---------------- */
   function computeStats() {
     const habits = activeHabits();
@@ -209,7 +252,9 @@
         const step = heatStepClass(pct);
         if (step > 0) cell.style.background = `var(--heat-${step})`;
         if (ds === todayStr()) cell.classList.add('today');
-        cell.title = scheduled ? `${humanDate(ds)} · ${Math.round(pct)}% (${done}/${scheduled})` : `${humanDate(ds)} · no habits scheduled`;
+        cell.classList.add('clickable');
+        cell.title = scheduled ? `${humanDate(ds)} · ${Math.round(pct)}% (${done}/${scheduled})` : `${humanDate(ds)} · tap to view or add a note`;
+        cell.addEventListener('click', () => openDaySheet(ds));
       }
       container.appendChild(cell);
     }
@@ -486,6 +531,8 @@
         stats.appendChild(div);
       });
 
+    renderDetailTrend(habit);
+
     const container = $('#detail-heatmap');
     container.innerHTML = '';
     container.style.setProperty('--habit-color', habitColorVar(habit));
@@ -514,6 +561,68 @@
       }
       container.appendChild(cell);
     }
+    requestAnimationFrame(() => {
+      const scroller = container.parentElement;
+      scroller.scrollLeft = scroller.scrollWidth;
+    });
+  }
+
+  function renderDetailTrend(habit) {
+    const container = $('#detail-trend');
+    const legend = $('#trend-legend');
+    container.innerHTML = '';
+    legend.textContent = '';
+    const usableHeight = 88;
+
+    if (habit.type === 'check') {
+      $('#trend-title').textContent = 'Weekly completion';
+      const weeks = computeWeeklyCompletion(habit, 12);
+      const thisWeek = fmt(startOfWeek(todayDate()));
+      weeks.forEach(w => {
+        const col = document.createElement('div');
+        col.className = 'trend-bar-col';
+        const bar = document.createElement('div');
+        bar.className = 'trend-bar';
+        const pct = w.pct === null ? 0 : w.pct;
+        bar.style.height = `${Math.max(2, Math.round((pct / 100) * usableHeight))}px`;
+        if (w.pct !== null && w.pct > 0) bar.style.background = habitColorVar(habit);
+        if (w.weekStart === thisWeek) bar.classList.add('today');
+        bar.title = w.scheduled
+          ? `Week of ${humanDate(w.weekStart)} · ${w.pct}% (${w.done}/${w.scheduled})`
+          : `Week of ${humanDate(w.weekStart)} · no scheduled days`;
+        col.appendChild(bar);
+        container.appendChild(col);
+      });
+    } else {
+      $('#trend-title').textContent = `Daily ${habit.unit || 'amount'}`;
+      const days = computeDailyValues(habit, 21);
+      const target = habit.target || 1;
+      const maxVal = Math.max(target, ...days.map(d => d.value), 1);
+      days.forEach(d => {
+        const col = document.createElement('div');
+        col.className = 'trend-bar-col';
+        const bar = document.createElement('div');
+        bar.className = 'trend-bar';
+        const heightPct = d.value / maxVal;
+        bar.style.height = `${Math.max(2, Math.round(heightPct * usableHeight))}px`;
+        const ratio = d.value / target;
+        if (d.value > 0) {
+          bar.style.background = ratio >= 1
+            ? habitColorVar(habit)
+            : `color-mix(in srgb, ${habitColorVar(habit)} ${Math.round(Math.min(1, ratio) * 70) + 15}%, var(--surface-2))`;
+        }
+        if (d.ds === todayStr()) bar.classList.add('today');
+        bar.title = `${humanDate(d.ds)} · ${d.value}${habit.unit ? ' ' + habit.unit : ''} of ${target}`;
+        col.appendChild(bar);
+        container.appendChild(col);
+      });
+      const line = document.createElement('div');
+      line.className = 'trend-target-line';
+      line.style.bottom = `${Math.round(Math.min(1, target / maxVal) * usableHeight) + 1}px`;
+      container.appendChild(line);
+      legend.textContent = `Target: ${target}${habit.unit ? ' ' + habit.unit : ''}`;
+    }
+
     requestAnimationFrame(() => {
       const scroller = container.parentElement;
       scroller.scrollLeft = scroller.scrollWidth;
@@ -578,6 +687,153 @@
     showToast('Range cleared');
   });
 
+  /* ---------------- day sheet (per-date view) ---------------- */
+  let currentDaySheetDate = null;
+
+  function openDaySheet(ds) {
+    currentDaySheetDate = ds;
+    renderDaySheet();
+    openSheet('day-sheet');
+  }
+
+  function renderDaySheet() {
+    const ds = currentDaySheetDate;
+    if (!ds) return;
+    $('#day-sheet-title').textContent = ds === todayStr() ? 'Today' : humanDate(ds);
+
+    const habits = activeHabits();
+    const scheduledHabits = habits.filter(h => isScheduled(h, ds));
+    const doneCount = scheduledHabits.filter(h => isDone(h, ds)).length;
+    $('#day-sheet-summary').textContent = habits.length
+      ? `${doneCount}/${scheduledHabits.length} scheduled habits complete`
+      : 'No habits yet — add one to start tracking.';
+
+    const list = $('#day-sheet-habits');
+    list.innerHTML = '';
+    habits.forEach(habit => {
+      const li = document.createElement('li');
+      li.className = 'habit-row';
+      li.style.setProperty('--habit-color', habitColorVar(habit));
+
+      const icon = document.createElement('div');
+      icon.className = 'habit-icon';
+      icon.textContent = habit.emoji || '✅';
+
+      const main = document.createElement('div');
+      main.className = 'habit-main';
+      const name = document.createElement('p');
+      name.className = 'habit-name';
+      name.textContent = habit.name;
+      const meta = document.createElement('p');
+      meta.className = 'habit-meta';
+      meta.textContent = isScheduled(habit, ds) ? 'Scheduled this day' : 'Not scheduled this day';
+      main.append(name, meta);
+
+      const control = document.createElement('div');
+      control.className = 'habit-control';
+      if (habit.type === 'count') {
+        const val = Number(getRaw(habit, ds)) || 0;
+        const stepper = document.createElement('div');
+        stepper.className = 'stepper';
+        const minus = document.createElement('button');
+        minus.type = 'button'; minus.className = 'stepper-btn'; minus.textContent = '−';
+        minus.addEventListener('click', () => { setValue(habit, ds, Math.max(0, val - 1)); saveState(); renderDaySheet(); renderAll(); });
+        const value = document.createElement('span');
+        value.className = 'stepper-value';
+        value.textContent = `${val}/${habit.target || 1}`;
+        const plus = document.createElement('button');
+        plus.type = 'button'; plus.className = 'stepper-btn'; plus.textContent = '+';
+        plus.addEventListener('click', () => { setValue(habit, ds, val + 1); saveState(); renderDaySheet(); renderAll(); });
+        stepper.append(minus, value, plus);
+        control.appendChild(stepper);
+      } else {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'check-toggle' + (isDone(habit, ds) ? ' done' : '');
+        btn.textContent = '✓';
+        btn.setAttribute('aria-label', isDone(habit, ds) ? 'Mark not done' : 'Mark done');
+        btn.addEventListener('click', () => { setValue(habit, ds, !isDone(habit, ds)); saveState(); renderDaySheet(); renderAll(); });
+        control.appendChild(btn);
+      }
+
+      li.append(icon, main, control);
+      list.appendChild(li);
+    });
+
+    $('#day-sheet-note').value = getNote(ds);
+  }
+
+  $('#day-sheet-note').addEventListener('input', debounce(() => {
+    if (!currentDaySheetDate) return;
+    setNote(currentDaySheetDate, $('#day-sheet-note').value);
+    saveState();
+  }, 400));
+
+  $('#day-sheet-share-btn').addEventListener('click', () => shareDay(currentDaySheetDate));
+
+  /* ---------------- today's note (dashboard) ---------------- */
+  let todayNoteSavedTimer = null;
+  function initTodayNote() {
+    const ta = $('#today-note-input');
+    ta.value = getNote(todayStr());
+    ta.addEventListener('input', debounce(() => {
+      setNote(todayStr(), ta.value);
+      saveState();
+      const saved = $('#today-note-saved');
+      saved.hidden = false;
+      clearTimeout(todayNoteSavedTimer);
+      todayNoteSavedTimer = setTimeout(() => { saved.hidden = true; }, 1500);
+    }, 400));
+  }
+  $('#share-today-btn').addEventListener('click', () => shareDay(todayStr()));
+
+  /* ---------------- share a day's summary ---------------- */
+  function daySummaryText(ds) {
+    const habits = activeHabits().filter(h => isScheduled(h, ds));
+    const lines = [`${humanDateLong(ds)} — Habits summary`, ''];
+    let doneCount = 0;
+    habits.forEach(h => {
+      const done = isDone(h, ds);
+      if (done) doneCount++;
+      let line = `${done ? '✅' : '▫️'} ${h.name}`;
+      if (h.type === 'count') {
+        const v = Number(getRaw(h, ds)) || 0;
+        line += ` — ${v}/${h.target}${h.unit ? ' ' + h.unit : ''}`;
+      }
+      lines.push(line);
+    });
+    if (habits.length) {
+      lines.push('');
+      lines.push(`${doneCount}/${habits.length} habits complete`);
+    } else {
+      lines.push('No habits scheduled.');
+    }
+    const note = getNote(ds);
+    if (note.trim()) {
+      lines.push('');
+      lines.push('Notes:');
+      lines.push(note.trim());
+    }
+    return lines.join('\n');
+  }
+
+  async function shareDay(ds) {
+    if (!ds) return;
+    const text = daySummaryText(ds);
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Habits summary', text }); return; }
+      catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('Copied — paste into your journal');
+        return;
+      } catch (e) { /* fall through */ }
+    }
+    showToast("Couldn't share on this device");
+  }
+
   /* ---------------- settings ---------------- */
   $('#settings-btn').addEventListener('click', () => { syncThemeButtons(); openSheet('settings-sheet'); });
 
@@ -625,12 +881,14 @@
         Object.keys(parsed.logs || {}).forEach(hid => {
           state.logs[hid] = Object.assign(state.logs[hid] || {}, parsed.logs[hid]);
         });
+        Object.assign(state.notes, parsed.notes || {});
       } else {
         state = Object.assign(defaultState(), parsed);
       }
       saveState();
       applyTheme(state.settings.theme);
       renderAll();
+      initTodayNote();
       showToast('Backup imported');
     } catch (err) {
       console.error(err);
@@ -646,6 +904,7 @@
     saveState();
     applyTheme('auto');
     renderAll();
+    initTodayNote();
     closeSheet('settings-sheet');
     showToast('All data erased');
   });
@@ -691,6 +950,7 @@
   applyTheme(state.settings.theme);
   setTodayLabel();
   renderAll();
+  initTodayNote();
   initInstallTip();
 
   if ('serviceWorker' in navigator) {

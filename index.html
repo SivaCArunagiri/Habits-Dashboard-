@@ -78,6 +78,7 @@
         <span>More</span>
       </div>
     </div>
+    <p class="field-hint">Tap any day to view or edit it, and to add a note.</p>
     <div class="heatmap-scroll">
       <div id="overview-heatmap" class="heatmap" role="img" aria-label="Daily completion heatmap"></div>
     </div>
@@ -92,6 +93,17 @@
       <p class="empty-state-title">No habits yet</p>
       <p class="empty-state-body">Add your first habit to start building your streak.</p>
       <button type="button" id="empty-add-btn" class="btn btn-primary">+ Add a habit</button>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Today's note">
+    <div class="panel-header">
+      <h2>Today's note</h2>
+    </div>
+    <textarea id="today-note-input" class="note-textarea" rows="3" placeholder="How did today go?"></textarea>
+    <div class="settings-row note-actions">
+      <button type="button" id="share-today-btn" class="btn btn-secondary">Share today's summary</button>
+      <span id="today-note-saved" class="field-hint note-saved" hidden>Saved</span>
     </div>
   </section>
 
@@ -164,6 +176,17 @@
     </div>
     <div class="sheet-body">
       <div class="detail-stats" id="detail-stats"></div>
+
+      <div class="trend-panel">
+        <div class="trend-head">
+          <span id="trend-title" class="field-label">Trend</span>
+          <div id="trend-legend" class="heatmap-legend"></div>
+        </div>
+        <div class="heatmap-scroll">
+          <div id="detail-trend" class="trend-chart"></div>
+        </div>
+      </div>
+
       <p class="field-hint">Tap any day below to log or correct that date.</p>
       <div class="heatmap-scroll">
         <div id="detail-heatmap" class="heatmap" role="img" aria-label="Habit completion heatmap"></div>
@@ -213,6 +236,28 @@
       </details>
 
       <button type="button" id="detail-edit-btn" class="btn btn-secondary btn-block">Edit habit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Day sheet (per-date view: all habits + note + share) -->
+<div id="day-sheet-backdrop" class="sheet-backdrop" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="day-sheet-title">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-header">
+      <h2 id="day-sheet-title">Day</h2>
+      <button type="button" class="icon-btn sheet-close" data-close="day-sheet" aria-label="Close">✕</button>
+    </div>
+    <div class="sheet-body">
+      <p id="day-sheet-summary" class="field-hint"></p>
+      <ul id="day-sheet-habits" class="habit-list"></ul>
+
+      <div class="field">
+        <span class="field-label">Note</span>
+        <textarea id="day-sheet-note" class="note-textarea" rows="3" placeholder="Anything worth remembering about this day?"></textarea>
+      </div>
+
+      <button type="button" id="day-sheet-share-btn" class="btn btn-secondary btn-block">Share this day</button>
     </div>
   </div>
 </div>

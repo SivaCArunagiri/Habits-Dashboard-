@@ -332,6 +332,68 @@ input { font: inherit; }
 }
 .stepper-value { min-width: 34px; text-align: center; font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
 
+/* ---------- notes ---------- */
+.note-textarea {
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  resize: vertical;
+  font-family: inherit;
+}
+.note-textarea:focus { outline: 2px solid var(--series-1); outline-offset: 1px; }
+.note-actions { align-items: center; margin-top: 12px; }
+.note-saved { color: var(--good); font-weight: 600; }
+
+/* ---------- trend chart ---------- */
+.trend-panel { display: flex; flex-direction: column; gap: 8px; }
+.trend-head { display: flex; align-items: center; justify-content: space-between; }
+.trend-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 96px;
+  padding-top: 8px;
+  border-bottom: 1px solid var(--baseline);
+  position: relative;
+  width: max-content;
+  min-width: 100%;
+}
+.trend-chart::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 8px;
+  height: 1px;
+  background: var(--gridline);
+}
+.trend-bar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  width: 16px;
+  flex-shrink: 0;
+}
+.trend-bar {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+  background: var(--gridline);
+  cursor: default;
+}
+.trend-bar.today { box-shadow: 0 0 0 1.5px var(--text-primary); }
+.trend-target-line {
+  position: absolute;
+  left: 0; right: 0;
+  border-top: 2px dashed var(--text-muted);
+  opacity: 0.6;
+}
+
 .empty-state { text-align: center; padding: 30px 10px; }
 .empty-state-title { font-size: 15.5px; font-weight: 700; }
 .empty-state-body { font-size: 13.5px; color: var(--text-secondary); margin-top: 4px; }
