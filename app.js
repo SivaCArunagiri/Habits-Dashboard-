@@ -55,7 +55,11 @@
   let state = loadState();
 
   function defaultState() {
-    return { version: 1, habits: [], logs: {}, notes: {}, habitNotes: {}, settings: { theme: 'auto' } };
+    return {
+      version: 1, habits: [], logs: {}, notes: {}, habitNotes: {},
+      yearlyHabits: [], yearlyLogs: {},
+      settings: { theme: 'auto' }
+    };
   }
 
   function loadState() {
@@ -69,6 +73,8 @@
         logs: parsed.logs && typeof parsed.logs === 'object' ? parsed.logs : {},
         notes: parsed.notes && typeof parsed.notes === 'object' ? parsed.notes : {},
         habitNotes: parsed.habitNotes && typeof parsed.habitNotes === 'object' ? parsed.habitNotes : {},
+        yearlyHabits: Array.isArray(parsed.yearlyHabits) ? parsed.yearlyHabits : [],
+        yearlyLogs: parsed.yearlyLogs && typeof parsed.yearlyLogs === 'object' ? parsed.yearlyLogs : {},
         settings: Object.assign({ theme: 'auto' }, parsed.settings || {})
       });
     } catch (e) {
@@ -157,6 +163,21 @@
     return max;
   }
   function activeHabits() { return state.habits.filter(h => !h.archived); }
+
+  /* ---------------- yearly goals ---------------- */
+  function currentYear() { return String(todayDate().getFullYear()); }
+  function activeYearlyHabits() { return state.yearlyHabits.filter(h => !h.archived); }
+  function getYearlyValue(habit, year) {
+    const bucket = state.yearlyLogs[habit.id];
+    return (bucket && Number(bucket[year])) || 0;
+  }
+  function setYearlyValue(habit, year, value) {
+    const n = Math.max(0, Math.round(Number(value)) || 0);
+    if (!state.yearlyLogs[habit.id]) state.yearlyLogs[habit.id] = {};
+    if (n <= 0) delete state.yearlyLogs[habit.id][year];
+    else state.yearlyLogs[habit.id][year] = n;
+    if (Object.keys(state.yearlyLogs[habit.id]).length === 0) delete state.yearlyLogs[habit.id];
+  }
 
   /* ---------------- daily notes ---------------- */
   function getNote(ds) { return state.notes[ds] || ''; }
@@ -366,10 +387,79 @@
     });
   }
 
+  /* ---------------- rendering: yearly goals ---------------- */
+  function renderYearlyList() {
+    const list = $('#yearly-list');
+    const habits = activeYearlyHabits();
+    list.innerHTML = '';
+    $('#yearly-empty-state').hidden = habits.length > 0;
+    list.hidden = habits.length === 0;
+    const year = currentYear();
+
+    habits.forEach(habit => {
+      const li = document.createElement('li');
+      li.className = 'yearly-card';
+      li.style.setProperty('--habit-color', habitColorVar(habit));
+
+      const top = document.createElement('div');
+      top.className = 'yearly-top';
+
+      const icon = document.createElement('div');
+      icon.className = 'habit-icon';
+      icon.textContent = habit.emoji || '🎯';
+      icon.addEventListener('click', () => openYearlyDetail(habit.id));
+
+      const main = document.createElement('div');
+      main.className = 'habit-main';
+      main.addEventListener('click', () => openYearlyDetail(habit.id));
+
+      const value = getYearlyValue(habit, year);
+      const target = habit.target || 1;
+      const pct = Math.min(100, Math.round((value / target) * 100));
+
+      const name = document.createElement('p');
+      name.className = 'habit-name';
+      name.textContent = habit.name;
+      const meta = document.createElement('p');
+      meta.className = 'habit-meta';
+      meta.textContent = `${value} / ${target}${habit.unit ? ' ' + habit.unit : ''} · ${pct}%`;
+      main.append(name, meta);
+
+      const control = document.createElement('div');
+      control.className = 'habit-control';
+      const stepper = document.createElement('div');
+      stepper.className = 'stepper';
+      const minus = document.createElement('button');
+      minus.type = 'button'; minus.className = 'stepper-btn'; minus.textContent = '−';
+      minus.addEventListener('click', () => { setYearlyValue(habit, year, value - 1); saveState(); renderYearlyList(); });
+      const valSpan = document.createElement('span');
+      valSpan.className = 'stepper-value';
+      valSpan.textContent = String(value);
+      const plus = document.createElement('button');
+      plus.type = 'button'; plus.className = 'stepper-btn'; plus.textContent = '+';
+      plus.addEventListener('click', () => { setYearlyValue(habit, year, value + 1); saveState(); renderYearlyList(); });
+      stepper.append(minus, valSpan, plus);
+      control.appendChild(stepper);
+
+      top.append(icon, main, control);
+
+      const track = document.createElement('div');
+      track.className = 'meter-track';
+      const fill = document.createElement('div');
+      fill.className = 'meter-fill';
+      fill.style.width = `${pct}%`;
+      track.appendChild(fill);
+
+      li.append(top, track);
+      list.appendChild(li);
+    });
+  }
+
   function renderAll() {
     renderStats();
     renderOverviewHeatmap();
     renderHabitList();
+    renderYearlyList();
   }
 
   /* ---------------- sheets ---------------- */
@@ -511,6 +601,167 @@
 
   $('#add-habit-btn').addEventListener('click', openAddHabit);
   $('#empty-add-btn').addEventListener('click', openAddHabit);
+
+  /* ---------------- yearly goal form (add / edit) ---------------- */
+  let editingYearlyId = null;
+  let yearlyFormEmoji = '🎯';
+  let yearlyFormColor = 1;
+
+  function buildYearlyEmojiRow() {
+    const row = $('#yearly-emoji-row');
+    row.innerHTML = '';
+    EMOJI_PRESETS.forEach(e => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'emoji-choice' + (e === yearlyFormEmoji ? ' selected' : '');
+      btn.textContent = e;
+      btn.addEventListener('click', () => { yearlyFormEmoji = e; buildYearlyEmojiRow(); });
+      row.appendChild(btn);
+    });
+  }
+  function buildYearlyColorRow() {
+    const row = $('#yearly-color-row');
+    row.innerHTML = '';
+    COLOR_SLOTS.forEach(c => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'color-choice' + (c === yearlyFormColor ? ' selected' : '');
+      btn.style.setProperty('--swatch-color', `var(--series-${c})`);
+      btn.setAttribute('aria-label', `Color ${c}`);
+      btn.addEventListener('click', () => { yearlyFormColor = c; buildYearlyColorRow(); });
+      row.appendChild(btn);
+    });
+  }
+
+  function resetYearlyForm() {
+    editingYearlyId = null;
+    yearlyFormEmoji = '🎯';
+    yearlyFormColor = COLOR_SLOTS[state.yearlyHabits.length % COLOR_SLOTS.length];
+    $('#yearly-name').value = '';
+    $('#yearly-target').value = '';
+    $('#yearly-unit').value = '';
+    $('#yearly-id').value = '';
+    $('#delete-yearly-btn').hidden = true;
+    $('#yearly-form-sheet-title').textContent = 'Add yearly goal';
+    buildYearlyEmojiRow(); buildYearlyColorRow();
+  }
+
+  function openAddYearly() { resetYearlyForm(); openSheet('yearly-form-sheet'); $('#yearly-name').focus(); }
+
+  function openEditYearly(habit) {
+    editingYearlyId = habit.id;
+    yearlyFormEmoji = habit.emoji;
+    yearlyFormColor = habit.color;
+    $('#yearly-name').value = habit.name;
+    $('#yearly-target').value = habit.target || '';
+    $('#yearly-unit').value = habit.unit || '';
+    $('#yearly-id').value = habit.id;
+    $('#delete-yearly-btn').hidden = false;
+    $('#yearly-form-sheet-title').textContent = 'Edit yearly goal';
+    buildYearlyEmojiRow(); buildYearlyColorRow();
+    openSheet('yearly-form-sheet');
+  }
+
+  $('#yearly-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const name = $('#yearly-name').value.trim();
+    if (!name) return;
+    const target = Math.max(1, parseInt($('#yearly-target').value, 10) || 1);
+    const unit = $('#yearly-unit').value.trim();
+
+    if (editingYearlyId) {
+      const h = state.yearlyHabits.find(h => h.id === editingYearlyId);
+      Object.assign(h, { name, emoji: yearlyFormEmoji, color: yearlyFormColor, target, unit });
+    } else {
+      state.yearlyHabits.push({
+        id: 'y_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        name, emoji: yearlyFormEmoji, color: yearlyFormColor, target, unit,
+        createdAt: todayStr(), archived: false
+      });
+    }
+    saveState();
+    closeSheet('yearly-form-sheet');
+    renderYearlyList();
+  });
+
+  $('#delete-yearly-btn').addEventListener('click', () => {
+    if (!editingYearlyId) return;
+    if (!confirm('Delete this yearly goal and all of its history?')) return;
+    state.yearlyHabits = state.yearlyHabits.filter(h => h.id !== editingYearlyId);
+    delete state.yearlyLogs[editingYearlyId];
+    saveState();
+    closeSheet('yearly-form-sheet');
+    renderYearlyList();
+  });
+
+  $('#add-yearly-btn').addEventListener('click', openAddYearly);
+  $('#yearly-empty-add-btn').addEventListener('click', openAddYearly);
+
+  /* ---------------- yearly goal detail sheet ---------------- */
+  let detailYearlyId = null;
+
+  function openYearlyDetail(id) {
+    detailYearlyId = id;
+    renderYearlyDetail();
+    openSheet('yearly-detail-sheet');
+  }
+
+  function renderYearlyDetail() {
+    const habit = state.yearlyHabits.find(h => h.id === detailYearlyId);
+    if (!habit) return;
+    const year = currentYear();
+    const value = getYearlyValue(habit, year);
+    const target = habit.target || 1;
+    const pct = Math.min(100, Math.round((value / target) * 100));
+
+    $('#yearly-detail-sheet-title').textContent = `${habit.emoji} ${habit.name}`;
+
+    const stats = $('#yearly-detail-stats');
+    stats.innerHTML = '';
+    [['This year', `${value}/${target}`], ['Progress', `${pct}%`], ['Remaining', String(Math.max(0, target - value))]]
+      .forEach(([label, val]) => {
+        const div = document.createElement('div');
+        div.className = 'detail-stat';
+        div.innerHTML = `<p class="stat-label">${label}</p><p class="stat-value">${val}</p>`;
+        stats.appendChild(div);
+      });
+
+    $('#yearly-detail-meter').style.setProperty('--habit-color', habitColorVar(habit));
+    $('#yearly-detail-fill').style.width = `${pct}%`;
+
+    $('#yearly-value-input').value = value;
+
+    const history = $('#yearly-history');
+    history.innerHTML = '';
+    const bucket = state.yearlyLogs[habit.id] || {};
+    const years = Object.keys(bucket).filter(y => y !== year).sort((a, b) => Number(b) - Number(a));
+    if (years.length === 0) {
+      history.innerHTML = '<p class="field-hint">No history from previous years yet.</p>';
+    } else {
+      years.forEach(y => {
+        const row = document.createElement('div');
+        row.className = 'yearly-history-row';
+        row.innerHTML = `<span>${y}</span><span>${bucket[y]} / ${target}${habit.unit ? ' ' + habit.unit : ''}</span>`;
+        history.appendChild(row);
+      });
+    }
+  }
+
+  $('#yearly-value-save').addEventListener('click', () => {
+    const habit = state.yearlyHabits.find(h => h.id === detailYearlyId);
+    if (!habit) return;
+    setYearlyValue(habit, currentYear(), $('#yearly-value-input').value);
+    saveState();
+    renderYearlyDetail();
+    renderYearlyList();
+    showToast('Saved');
+  });
+
+  $('#yearly-edit-btn').addEventListener('click', () => {
+    const habit = state.yearlyHabits.find(h => h.id === detailYearlyId);
+    closeSheet('yearly-detail-sheet');
+    openEditYearly(habit);
+  });
 
   /* ---------------- detail sheet ---------------- */
   let detailHabitId = null;
@@ -924,6 +1175,11 @@
         Object.assign(state.notes, parsed.notes || {});
         Object.keys(parsed.habitNotes || {}).forEach(hid => {
           state.habitNotes[hid] = Object.assign(state.habitNotes[hid] || {}, parsed.habitNotes[hid]);
+        });
+        const existingYearlyIds = new Set(state.yearlyHabits.map(h => h.id));
+        (parsed.yearlyHabits || []).forEach(h => { if (!existingYearlyIds.has(h.id)) state.yearlyHabits.push(h); });
+        Object.keys(parsed.yearlyLogs || {}).forEach(hid => {
+          state.yearlyLogs[hid] = Object.assign(state.yearlyLogs[hid] || {}, parsed.yearlyLogs[hid]);
         });
       } else {
         state = Object.assign(defaultState(), parsed);

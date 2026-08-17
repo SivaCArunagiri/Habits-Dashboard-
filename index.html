@@ -96,6 +96,20 @@
     </div>
   </section>
 
+  <section class="panel" aria-label="Yearly goals">
+    <div class="panel-header">
+      <h2>Yearly goals</h2>
+      <button type="button" id="add-yearly-btn" class="btn btn-secondary">+ Goal</button>
+    </div>
+    <p class="field-hint">Things you check in on over the whole year, not every day — no streak, just progress toward a target.</p>
+    <ul id="yearly-list" class="yearly-list"></ul>
+    <div id="yearly-empty-state" class="empty-state" hidden>
+      <p class="empty-state-title">No yearly goals yet</p>
+      <p class="empty-state-body">Try something like "12 books" or "50 hikes" — log progress whenever it happens.</p>
+      <button type="button" id="yearly-empty-add-btn" class="btn btn-primary">+ Add a yearly goal</button>
+    </div>
+  </section>
+
   <section class="panel" aria-label="Today's note">
     <div class="panel-header">
       <h2>Today's note</h2>
@@ -261,6 +275,83 @@
       </div>
 
       <button type="button" id="day-sheet-share-btn" class="btn btn-secondary btn-block">Share this day</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit yearly goal sheet -->
+<div id="yearly-form-sheet-backdrop" class="sheet-backdrop" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="yearly-form-sheet-title">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-header">
+      <h2 id="yearly-form-sheet-title">Add yearly goal</h2>
+      <button type="button" class="icon-btn sheet-close" data-close="yearly-form-sheet" aria-label="Close">✕</button>
+    </div>
+    <form id="yearly-form" class="sheet-body">
+      <label class="field">
+        <span class="field-label">Name</span>
+        <input type="text" id="yearly-name" maxlength="40" placeholder="Books read" required>
+      </label>
+
+      <div class="field">
+        <span class="field-label">Icon</span>
+        <div class="emoji-row" id="yearly-emoji-row"></div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Color</span>
+        <div class="color-row" id="yearly-color-row"></div>
+      </div>
+
+      <div class="field field-row">
+        <label class="field field-shrink">
+          <span class="field-label">Yearly target</span>
+          <input type="number" id="yearly-target" min="1" step="1" inputmode="numeric" placeholder="12" required>
+        </label>
+        <label class="field field-grow">
+          <span class="field-label">Unit</span>
+          <input type="text" id="yearly-unit" maxlength="16" placeholder="books, trips, articles…">
+        </label>
+      </div>
+
+      <input type="hidden" id="yearly-id">
+      <div class="sheet-actions">
+        <button type="button" id="delete-yearly-btn" class="btn btn-danger" hidden>Delete</button>
+        <button type="submit" class="btn btn-primary btn-block">Save goal</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Yearly goal detail sheet -->
+<div id="yearly-detail-sheet-backdrop" class="sheet-backdrop" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="yearly-detail-sheet-title">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-header">
+      <h2 id="yearly-detail-sheet-title">Goal</h2>
+      <button type="button" class="icon-btn sheet-close" data-close="yearly-detail-sheet" aria-label="Close">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="detail-stats" id="yearly-detail-stats"></div>
+
+      <div class="meter-track meter-large" id="yearly-detail-meter">
+        <div class="meter-fill" id="yearly-detail-fill"></div>
+      </div>
+
+      <div class="field field-row">
+        <label class="field field-shrink">
+          <span class="field-label">This year's count</span>
+          <input type="number" id="yearly-value-input" min="0" step="1" inputmode="numeric">
+        </label>
+        <button type="button" id="yearly-value-save" class="btn btn-secondary">Save</button>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Past years</span>
+        <div id="yearly-history" class="yearly-history"></div>
+      </div>
+
+      <button type="button" id="yearly-edit-btn" class="btn btn-secondary btn-block">Edit goal</button>
     </div>
   </div>
 </div>

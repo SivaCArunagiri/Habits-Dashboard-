@@ -327,6 +327,41 @@ input { font: inherit; }
   font-family: inherit;
 }
 .habit-note-input:focus { outline: 2px solid var(--series-1); outline-offset: 1px; }
+
+/* ---------- yearly goals ---------- */
+.yearly-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.yearly-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.yearly-top { display: flex; align-items: center; gap: 12px; }
+.meter-track {
+  height: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--habit-color) 16%, var(--surface-1));
+  overflow: hidden;
+}
+.meter-track.meter-large { height: 16px; }
+.meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--habit-color);
+  transition: width 0.25s ease;
+}
+.yearly-history-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--gridline);
+  font-size: 13.5px;
+}
+.yearly-history-row:last-child { border-bottom: none; }
+
 .check-toggle {
   width: 34px; height: 34px;
   border-radius: 50%;
