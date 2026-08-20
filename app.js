@@ -2,7 +2,20 @@
   'use strict';
 
   const STORAGE_KEY = 'habits-dashboard-v1';
-  const EMOJI_PRESETS = ['✅','💧','🏃','📖','🧘','🛌','🥗','💪','🚭','📵','✍️','🧹','🎯','🙏','🎸','💊'];
+  const EMOJI_PRESETS = [
+    '✅','🎯','🔥','⭐','🏆','📅','⏰',
+    '🏃','🚴','🏋️','🚶','🏊','🤸','⚽','🏀','🎾','🥊','🏓','🧗','⛰️',
+    '💪','🧘','🛌','😴','❤️','🧠','🦷','🧴','🪥','🚿','🧖',
+    '💧','🥗','🍎','🥦','☕','🍵','🧃','🥤','🍳','🥛',
+    '📖','📚','✍️','🎓','💻','⌨️','📝','💡','🗣️','🧩',
+    '🙏','🌙','☀️','🌿','🌳','🌱',
+    '💰','💵','🏦','📈','🪙',
+    '🧹','🧺','🧽','🛏️','🪴','🗑️',
+    '🚭','📵','🎮',
+    '🎸','🎨','📷','♟️','🎹',
+    '📞','💌','🐕','🐈',
+    '💊','🙌'
+  ];
   const COLOR_SLOTS = [1,2,3,4,5,6,7,8];
   const DAY_LABELS = ['S','M','T','W','T','F','S'];
   const WEEKS_OVERVIEW = 18;
@@ -1880,7 +1893,7 @@
     habits.forEach(h => {
       const done = isDone(h, ds);
       if (done) doneCount++;
-      let line = `${done ? (h.emoji || '✅') : '▫️'} ${h.name}`;
+      let line = `${done ? (h.emoji || '✅') : '○'} ${h.name}`;
       if (h.type === 'count') {
         const v = Number(getRaw(h, ds)) || 0;
         line += ` — ${v}/${h.target}${h.unit ? ' ' + h.unit : ''}`;
