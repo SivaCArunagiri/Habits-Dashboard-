@@ -64,7 +64,7 @@
   function defaultState() {
     return {
       version: 1, habits: [], logs: {}, notes: {}, habitNotes: {},
-      yearlyHabits: [], yearlyLogs: {},
+      yearlyHabits: [], yearlyLogs: {}, yearlyHistory: {},
       supplements: [], supplementLogs: {},
       settings: { theme: 'auto' }
     };
@@ -83,6 +83,7 @@
         habitNotes: parsed.habitNotes && typeof parsed.habitNotes === 'object' ? parsed.habitNotes : {},
         yearlyHabits: Array.isArray(parsed.yearlyHabits) ? parsed.yearlyHabits : [],
         yearlyLogs: parsed.yearlyLogs && typeof parsed.yearlyLogs === 'object' ? parsed.yearlyLogs : {},
+        yearlyHistory: parsed.yearlyHistory && typeof parsed.yearlyHistory === 'object' ? parsed.yearlyHistory : {},
         supplements: Array.isArray(parsed.supplements) ? parsed.supplements : [],
         supplementLogs: parsed.supplementLogs && typeof parsed.supplementLogs === 'object' ? parsed.supplementLogs : {},
         settings: Object.assign({ theme: 'auto' }, parsed.settings || {})
@@ -190,6 +191,26 @@
     if (n <= 0) delete state.yearlyLogs[habit.id][year];
     else state.yearlyLogs[habit.id][year] = n;
     if (Object.keys(state.yearlyLogs[habit.id]).length === 0) delete state.yearlyLogs[habit.id];
+    if (year === currentYear()) recordYearlyHistory(habit, todayStr(), n);
+  }
+  function recordYearlyHistory(habit, ds, total) {
+    if (!state.yearlyHistory[habit.id]) state.yearlyHistory[habit.id] = {};
+    state.yearlyHistory[habit.id][ds] = total;
+  }
+  function getYearlyHistoryPoints(habit, year) {
+    const bucket = state.yearlyHistory[habit.id] || {};
+    return Object.keys(bucket)
+      .filter(ds => ds.startsWith(year))
+      .sort()
+      .map(ds => ({ date: ds, value: bucket[ds] }));
+  }
+  function ensureYearlyHistorySeed(habit) {
+    const year = currentYear();
+    const value = getYearlyValue(habit, year);
+    if (value > 0 && getYearlyHistoryPoints(habit, year).length === 0) {
+      recordYearlyHistory(habit, todayStr(), value);
+      saveState();
+    }
   }
 
   /* ---------------- supplements ---------------- */
@@ -1104,6 +1125,7 @@
     if (!confirm('Delete this yearly goal and all of its history?')) return;
     state.yearlyHabits = state.yearlyHabits.filter(h => h.id !== editingYearlyId);
     delete state.yearlyLogs[editingYearlyId];
+    delete state.yearlyHistory[editingYearlyId];
     saveState();
     closeSheet('yearly-form-sheet');
     renderYearlyList();
@@ -1118,6 +1140,8 @@
 
   function openYearlyDetail(id) {
     detailYearlyId = id;
+    const habit = state.yearlyHabits.find(h => h.id === id);
+    if (habit) ensureYearlyHistorySeed(habit);
     renderYearlyDetail();
     openSheet('yearly-detail-sheet');
   }
@@ -1152,6 +1176,8 @@
     $('#yearly-detail-meter').style.setProperty('--habit-color', habitColorVar(habit));
     $('#yearly-detail-fill').style.width = `${pct}%`;
 
+    renderYearlyBurndown(habit);
+
     $('#yearly-value-input').value = value;
 
     const history = $('#yearly-history');
@@ -1168,6 +1194,90 @@
         history.appendChild(row);
       });
     }
+  }
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  function renderYearlyBurndown(habit) {
+    const container = $('#yearly-burndown-chart');
+    container.innerHTML = '';
+    container.style.setProperty('--habit-color', habitColorVar(habit));
+
+    const year = currentYear();
+    const target = habit.target || 1;
+    const startOfYear = new Date(Number(year), 0, 1);
+    const endOfYear = new Date(Number(year), 11, 31);
+    const totalDays = Math.round((endOfYear - startOfYear) / 86400000) + 1;
+    const todayIdx = Math.min(totalDays - 1, Math.round((todayDate() - startOfYear) / 86400000));
+
+    const points = getYearlyHistoryPoints(habit, year);
+    const maxVal = Math.max(target, ...points.map(p => p.value), 1);
+
+    const W = 600, H = 180, PAD_X = 6, PAD_TOP = 10, PAD_BOTTOM = 20;
+    const xScale = dayIdx => PAD_X + (dayIdx / (totalDays - 1)) * (W - PAD_X * 2);
+    const yScale = v => (H - PAD_BOTTOM) - (v / maxVal) * (H - PAD_BOTTOM - PAD_TOP);
+
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('class', 'burndown-svg');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', `Pace chart for ${habit.name}`);
+
+    // baseline
+    const baseline = document.createElementNS(SVG_NS, 'line');
+    baseline.setAttribute('x1', PAD_X); baseline.setAttribute('x2', W - PAD_X);
+    baseline.setAttribute('y1', yScale(0)); baseline.setAttribute('y2', yScale(0));
+    baseline.setAttribute('class', 'burndown-gridline');
+    svg.appendChild(baseline);
+
+    // month tick labels (quarterly, to stay recessive/uncluttered)
+    [0, 3, 6, 9].forEach(month => {
+      const dayIdx = Math.round((new Date(Number(year), month, 1) - startOfYear) / 86400000);
+      const label = document.createElementNS(SVG_NS, 'text');
+      label.setAttribute('x', xScale(dayIdx));
+      label.setAttribute('y', H - 4);
+      label.setAttribute('class', 'burndown-label');
+      label.textContent = MONTH_LABELS[month];
+      svg.appendChild(label);
+    });
+
+    // ideal pace line: (day0, 0) -> (last day, target)
+    const idealPath = document.createElementNS(SVG_NS, 'path');
+    idealPath.setAttribute('d', `M ${xScale(0)} ${yScale(0)} L ${xScale(totalDays - 1)} ${yScale(target)}`);
+    idealPath.setAttribute('class', 'burndown-ideal');
+    svg.appendChild(idealPath);
+
+    // today marker
+    const todayLine = document.createElementNS(SVG_NS, 'line');
+    const todayX = xScale(todayIdx);
+    todayLine.setAttribute('x1', todayX); todayLine.setAttribute('x2', todayX);
+    todayLine.setAttribute('y1', PAD_TOP); todayLine.setAttribute('y2', yScale(0));
+    todayLine.setAttribute('class', 'burndown-today');
+    svg.appendChild(todayLine);
+
+    // actual progress line, from real history points
+    if (points.length) {
+      const d = points.map((p, i) => {
+        const dayIdx = Math.round((parseLocal(p.date) - startOfYear) / 86400000);
+        return `${i === 0 ? 'M' : 'L'} ${xScale(dayIdx)} ${yScale(p.value)}`;
+      }).join(' ');
+      const actualPath = document.createElementNS(SVG_NS, 'path');
+      actualPath.setAttribute('d', d);
+      actualPath.setAttribute('class', 'burndown-actual');
+      svg.appendChild(actualPath);
+
+      const last = points[points.length - 1];
+      const lastDayIdx = Math.round((parseLocal(last.date) - startOfYear) / 86400000);
+      const dot = document.createElementNS(SVG_NS, 'circle');
+      dot.setAttribute('cx', xScale(lastDayIdx));
+      dot.setAttribute('cy', yScale(last.value));
+      dot.setAttribute('r', 4);
+      dot.setAttribute('class', 'burndown-dot');
+      svg.appendChild(dot);
+    }
+
+    container.appendChild(svg);
   }
 
   $('#yearly-value-save').addEventListener('click', () => {
@@ -1901,6 +2011,9 @@
         Object.keys(parsed.yearlyLogs || {}).forEach(hid => {
           state.yearlyLogs[hid] = Object.assign(state.yearlyLogs[hid] || {}, parsed.yearlyLogs[hid]);
         });
+        Object.keys(parsed.yearlyHistory || {}).forEach(hid => {
+          state.yearlyHistory[hid] = Object.assign(state.yearlyHistory[hid] || {}, parsed.yearlyHistory[hid]);
+        });
         const existingSupplementIds = new Set(state.supplements.map(s => s.id));
         (parsed.supplements || []).forEach(s => { if (!existingSupplementIds.has(s.id)) state.supplements.push(s); });
         Object.keys(parsed.supplementLogs || {}).forEach(sid => {
@@ -1996,6 +2109,7 @@
         habitNotes: newState.habitNotes && typeof newState.habitNotes === 'object' ? newState.habitNotes : {},
         yearlyHabits: Array.isArray(newState.yearlyHabits) ? newState.yearlyHabits : [],
         yearlyLogs: newState.yearlyLogs && typeof newState.yearlyLogs === 'object' ? newState.yearlyLogs : {},
+        yearlyHistory: newState.yearlyHistory && typeof newState.yearlyHistory === 'object' ? newState.yearlyHistory : {},
         supplements: Array.isArray(newState.supplements) ? newState.supplements : [],
         supplementLogs: newState.supplementLogs && typeof newState.supplementLogs === 'object' ? newState.supplementLogs : {},
         settings: Object.assign({ theme: 'auto' }, newState.settings || {})
