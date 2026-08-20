@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Habits</title>
+<title>Keystone</title>
 <meta name="description" content="A simple habit-tracking dashboard that works on iPhone, iPad, and Mac.">
 
 <!-- PWA / installability -->
@@ -13,7 +13,7 @@
 
 <!-- iOS home-screen app behavior -->
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Habits">
+<meta name="apple-mobile-web-app-title" content="Keystone">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 
@@ -34,7 +34,7 @@
   <div class="app-header-title">
     <span class="app-logo" aria-hidden="true">✓</span>
     <div>
-      <h1>Habits</h1>
+      <h1>Keystone</h1>
       <p id="today-label" class="app-subtitle"></p>
     </div>
   </div>
@@ -63,6 +63,41 @@
       <p class="stat-label">Habits tracked</p>
       <p class="stat-value" id="stat-count">–</p>
     </div>
+  </section>
+
+  <section class="panel" id="review-panel" aria-label="Review">
+    <div class="panel-header">
+      <h2>Review</h2>
+      <div class="segmented" id="review-period-segmented">
+        <button type="button" data-period="week" class="segmented-btn">Week</button>
+        <button type="button" data-period="month" class="segmented-btn">Month</button>
+      </div>
+    </div>
+    <p class="field-hint" id="review-range-label"></p>
+
+    <div class="detail-stats" id="review-stats"></div>
+
+    <div class="review-group" id="review-habits-group" hidden>
+      <p class="review-group-title">Daily habits</p>
+      <div id="review-habits-list" class="review-rows"></div>
+    </div>
+
+    <div class="review-group" id="review-supplements-group" hidden>
+      <p class="review-group-title">Supplements</p>
+      <div id="review-supplements-list" class="review-rows"></div>
+    </div>
+
+    <div class="review-group" id="review-yearly-group" hidden>
+      <p class="review-group-title">Yearly goals</p>
+      <div id="review-yearly-list" class="review-rows"></div>
+    </div>
+
+    <div id="review-empty-state" class="empty-state" hidden>
+      <p class="empty-state-title">Nothing to review yet</p>
+      <p class="empty-state-body">Add a habit, supplement, or yearly goal to see your progress here.</p>
+    </div>
+
+    <button type="button" id="review-share-btn" class="btn btn-secondary btn-block">Share this review</button>
   </section>
 
   <section class="panel" aria-label="Consistency overview">
@@ -180,6 +215,13 @@
       <div class="field">
         <span class="field-label">Repeat</span>
         <div class="day-row" id="day-row"></div>
+      </div>
+
+      <div class="field" id="habit-active-row" hidden>
+        <label class="stock-toggle">
+          <input type="checkbox" id="habit-active" checked>
+          <span>Active (shows in Daily habits)</span>
+        </label>
       </div>
 
       <input type="hidden" id="habit-id">
@@ -325,6 +367,13 @@
         </label>
       </div>
 
+      <div class="field" id="yearly-active-row" hidden>
+        <label class="stock-toggle">
+          <input type="checkbox" id="yearly-active" checked>
+          <span>Active (shows in Yearly goals)</span>
+        </label>
+      </div>
+
       <input type="hidden" id="yearly-id">
       <div class="sheet-actions">
         <button type="button" id="delete-yearly-btn" class="btn btn-danger" hidden>Delete</button>
@@ -431,6 +480,13 @@
         </label>
       </div>
 
+      <div class="field" id="supplement-active-row" hidden>
+        <label class="stock-toggle">
+          <input type="checkbox" id="supplement-active" checked>
+          <span>Active (shows in Supplements)</span>
+        </label>
+      </div>
+
       <input type="hidden" id="supplement-id">
       <div class="sheet-actions">
         <button type="button" id="delete-supplement-btn" class="btn btn-danger" hidden>Delete</button>
@@ -515,9 +571,18 @@
 
       <div class="settings-divider"></div>
 
+      <div class="field">
+        <span class="field-label">Archived</span>
+        <p class="field-hint">Paused habits, supplements, and yearly goals keep their history but stay out of the way. Restore them here.</p>
+      </div>
+      <div id="archived-list" class="yearly-history"></div>
+      <p id="archived-empty" class="field-hint" hidden>Nothing archived.</p>
+
+      <div class="settings-divider"></div>
+
       <button type="button" id="reset-btn" class="btn btn-danger btn-block">Erase all data on this device</button>
 
-      <p class="field-hint app-version">Habits Dashboard · installs from this page on iPhone, iPad, and Mac</p>
+      <p class="field-hint app-version">Keystone · installs from this page on iPhone, iPad, and Mac</p>
     </div>
   </div>
 </div>

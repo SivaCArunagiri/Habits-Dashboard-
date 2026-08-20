@@ -1,7 +1,7 @@
 {
-  "name": "Habits Dashboard",
-  "short_name": "Habits",
-  "description": "Track daily habits with streaks, a consistency heatmap, and backdated logging.",
+  "name": "Keystone",
+  "short_name": "Keystone",
+  "description": "Track daily habits, supplements, and yearly goals with streaks, adherence, and progress.",
   "start_url": "./index.html",
   "scope": "./",
   "id": "./",

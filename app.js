@@ -245,6 +245,56 @@
     return Math.floor((supp.stockRemaining || 0) / perDay);
   }
 
+  /* ---------------- review (week / month) ---------------- */
+  let reviewPeriod = 'week';
+
+  function reviewRange(period) {
+    const today = todayDate();
+    if (period === 'month') {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { start, end: today, label: today.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) };
+    }
+    const start = startOfWeek(today);
+    return { start, end: today, label: `${humanDate(fmt(start))} – ${humanDate(fmt(today))}` };
+  }
+
+  function habitReviewStats(habit, start, end) {
+    let scheduled = 0, done = 0;
+    for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
+      const ds = fmt(d);
+      if (isScheduled(habit, ds)) { scheduled++; if (isDone(habit, ds)) done++; }
+    }
+    return { scheduled, done, pct: scheduled ? Math.round((done / scheduled) * 100) : 0 };
+  }
+
+  function supplementReviewStats(supp, start, end) {
+    let dayCount = 0, sumPct = 0;
+    for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
+      sumPct += supplementAdherencePct(supp, fmt(d));
+      dayCount++;
+    }
+    return { pct: dayCount ? Math.round(sumPct / dayCount) : 0 };
+  }
+
+  function yearlyPaceStatus(habit) {
+    const year = currentYear();
+    const value = getYearlyValue(habit, year);
+    const target = habit.target || 1;
+    const startOfYear = new Date(Number(year), 0, 1);
+    const endOfYear = new Date(Number(year), 11, 31);
+    const totalDays = Math.round((endOfYear - startOfYear) / 86400000) + 1;
+    const elapsedDays = Math.round((todayDate() - startOfYear) / 86400000) + 1;
+    const expected = target * (elapsedDays / totalDays);
+    const ratio = expected > 0 ? value / expected : (value > 0 ? 2 : 1);
+    let status, cls;
+    if (habit.createdAt === todayStr() && value === 0) { status = 'Just started'; cls = 'good'; }
+    else if (ratio >= 1.05) { status = 'Ahead'; cls = 'good'; }
+    else if (ratio >= 0.8) { status = 'On track'; cls = 'good'; }
+    else if (ratio >= 0.5) { status = 'Behind'; cls = 'warning'; }
+    else { status = 'Far behind'; cls = 'critical'; }
+    return { status, cls, value, target, pct: Math.min(100, Math.round((value / target) * 100)) };
+  }
+
   /* ---------------- daily notes ---------------- */
   function getNote(ds) { return state.notes[ds] || ''; }
   function setNote(ds, text) {
@@ -373,6 +423,32 @@
   /* ---------------- rendering: habit list ---------------- */
   function habitColorVar(habit) { return `var(--series-${habit.color})`; }
 
+  function swapActive(fullArray, activeArray, index, direction) {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= activeArray.length) return;
+    const a = activeArray[index], b = activeArray[targetIndex];
+    const realIndexA = fullArray.indexOf(a);
+    const realIndexB = fullArray.indexOf(b);
+    fullArray[realIndexA] = b;
+    fullArray[realIndexB] = a;
+  }
+  function buildReorderButtons(fullArray, activeArray, index, rerender) {
+    const wrap = document.createElement('div');
+    wrap.className = 'reorder-btns';
+    const up = document.createElement('button');
+    up.type = 'button'; up.className = 'reorder-btn'; up.textContent = '▲';
+    up.setAttribute('aria-label', 'Move up');
+    up.disabled = index === 0;
+    up.addEventListener('click', () => { swapActive(fullArray, activeArray, index, -1); saveState(); rerender(); });
+    const down = document.createElement('button');
+    down.type = 'button'; down.className = 'reorder-btn'; down.textContent = '▼';
+    down.setAttribute('aria-label', 'Move down');
+    down.disabled = index === activeArray.length - 1;
+    down.addEventListener('click', () => { swapActive(fullArray, activeArray, index, 1); saveState(); rerender(); });
+    wrap.append(up, down);
+    return wrap;
+  }
+
   function renderHabitList() {
     const list = $('#habit-list');
     const habits = activeHabits();
@@ -448,7 +524,7 @@
         control.appendChild(btn);
       }
 
-      li.append(icon, main, control);
+      li.append(icon, main, control, buildReorderButtons(state.habits, habits, habits.indexOf(habit), renderHabitList));
       list.appendChild(li);
     });
   }
@@ -497,17 +573,17 @@
       stepper.className = 'stepper';
       const minus = document.createElement('button');
       minus.type = 'button'; minus.className = 'stepper-btn'; minus.textContent = '−';
-      minus.addEventListener('click', () => { setYearlyValue(habit, year, value - 1); saveState(); renderYearlyList(); });
+      minus.addEventListener('click', () => { setYearlyValue(habit, year, value - 1); saveState(); renderYearlyList(); renderReview(); });
       const valSpan = document.createElement('span');
       valSpan.className = 'stepper-value';
       valSpan.textContent = String(value);
       const plus = document.createElement('button');
       plus.type = 'button'; plus.className = 'stepper-btn'; plus.textContent = '+';
-      plus.addEventListener('click', () => { setYearlyValue(habit, year, value + 1); saveState(); renderYearlyList(); });
+      plus.addEventListener('click', () => { setYearlyValue(habit, year, value + 1); saveState(); renderYearlyList(); renderReview(); });
       stepper.append(minus, valSpan, plus);
       control.appendChild(stepper);
 
-      top.append(icon, main, control);
+      top.append(icon, main, control, buildReorderButtons(state.yearlyHabits, habits, habits.indexOf(habit), renderYearlyList));
 
       const track = document.createElement('div');
       track.className = 'meter-track';
@@ -561,7 +637,7 @@
       meta.textContent = metaParts.join(' · ');
       main.append(name, meta);
 
-      top.append(icon, main);
+      top.append(icon, main, buildReorderButtons(state.supplements, supplements, supplements.indexOf(supp), renderSupplementList));
 
       const slotRow = document.createElement('div');
       slotRow.className = 'slot-row';
@@ -571,7 +647,7 @@
         chip.type = 'button';
         chip.className = 'slot-chip' + (isSlotTaken(supp, ds, slotKey) ? ' taken' : '');
         chip.textContent = slotDef ? slotDef.label : slotKey;
-        chip.addEventListener('click', () => { toggleSupplementSlot(supp, ds, slotKey); saveState(); renderSupplementList(); });
+        chip.addEventListener('click', () => { toggleSupplementSlot(supp, ds, slotKey); saveState(); renderSupplementList(); renderReview(); });
         slotRow.appendChild(chip);
       });
 
@@ -589,8 +665,164 @@
     });
   }
 
+  /* ---------------- rendering: review ---------------- */
+  function buildReviewRow(item, valueText, pct, statusInfo) {
+    const row = document.createElement('div');
+    row.className = 'review-row';
+    row.style.setProperty('--habit-color', habitColorVar(item));
+
+    const icon = document.createElement('div');
+    icon.className = 'habit-icon';
+    icon.textContent = item.emoji || '✅';
+
+    const main = document.createElement('div');
+    main.className = 'review-row-main';
+
+    const top = document.createElement('div');
+    top.className = 'review-row-top';
+    const name = document.createElement('span');
+    name.className = 'habit-name';
+    name.textContent = item.name;
+    top.appendChild(name);
+
+    if (statusInfo) {
+      const badge = document.createElement('span');
+      badge.className = `status-badge status-${statusInfo.cls}`;
+      badge.textContent = `${statusInfo.status} · ${statusInfo.value}/${statusInfo.target}`;
+      top.appendChild(badge);
+    } else {
+      const value = document.createElement('span');
+      value.className = 'review-row-value';
+      value.textContent = valueText;
+      top.appendChild(value);
+    }
+
+    const track = document.createElement('div');
+    track.className = 'meter-track';
+    const fill = document.createElement('div');
+    fill.className = 'meter-fill';
+    fill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+    track.appendChild(fill);
+
+    main.append(top, track);
+    row.append(icon, main);
+    return row;
+  }
+
+  function renderReview() {
+    const { start, end, label } = reviewRange(reviewPeriod);
+    $('#review-range-label').textContent = label;
+
+    const habits = activeHabits();
+    const supplements = activeSupplements();
+    const yearlyList = activeYearlyHabits();
+
+    const habitRows = habits.map(h => ({ habit: h, stats: habitReviewStats(h, start, end) }));
+    let habitScheduled = 0, habitDone = 0;
+    habitRows.forEach(r => { habitScheduled += r.stats.scheduled; habitDone += r.stats.done; });
+    const habitPct = habitScheduled ? Math.round((habitDone / habitScheduled) * 100) : null;
+
+    const supplementRows = supplements.map(s => ({ supp: s, stats: supplementReviewStats(s, start, end) }));
+    const supplementPct = supplementRows.length
+      ? Math.round(supplementRows.reduce((sum, r) => sum + r.stats.pct, 0) / supplementRows.length)
+      : null;
+
+    const yearlyRows = yearlyList.map(h => ({ habit: h, status: yearlyPaceStatus(h) }));
+    const onPaceCount = yearlyRows.filter(r => r.status.cls === 'good').length;
+
+    const stats = $('#review-stats');
+    stats.innerHTML = '';
+    [
+      ['Habits', habitPct === null ? '—' : `${habitPct}%`],
+      ['Supplements', supplementPct === null ? '—' : `${supplementPct}%`],
+      ['Yearly goals', yearlyRows.length ? `${onPaceCount}/${yearlyRows.length} on pace` : '—']
+    ].forEach(([label, value]) => {
+      const div = document.createElement('div');
+      div.className = 'detail-stat';
+      div.innerHTML = `<p class="stat-label">${label}</p><p class="stat-value">${value}</p>`;
+      stats.appendChild(div);
+    });
+
+    $('#review-habits-group').hidden = habitRows.length === 0;
+    const habitsList = $('#review-habits-list');
+    habitsList.innerHTML = '';
+    habitRows.forEach(({ habit, stats: s }) => {
+      habitsList.appendChild(buildReviewRow(habit, `${s.done}/${s.scheduled} days`, s.pct));
+    });
+
+    $('#review-supplements-group').hidden = supplementRows.length === 0;
+    const suppList = $('#review-supplements-list');
+    suppList.innerHTML = '';
+    supplementRows.forEach(({ supp, stats: s }) => {
+      suppList.appendChild(buildReviewRow(supp, `${s.pct}% adherence`, s.pct));
+    });
+
+    $('#review-yearly-group').hidden = yearlyRows.length === 0;
+    const yearlyListEl = $('#review-yearly-list');
+    yearlyListEl.innerHTML = '';
+    yearlyRows.forEach(({ habit, status }) => {
+      yearlyListEl.appendChild(buildReviewRow(habit, null, status.pct, status));
+    });
+
+    $('#review-empty-state').hidden = (habits.length + supplements.length + yearlyList.length) > 0;
+  }
+
+  function reviewSummaryText() {
+    const { start, end, label } = reviewRange(reviewPeriod);
+    const periodName = reviewPeriod === 'week' ? 'Weekly' : 'Monthly';
+    const lines = [`${periodName} review — ${label}`, ''];
+
+    const habits = activeHabits();
+    if (habits.length) {
+      lines.push('Daily habits:');
+      habits.forEach(h => {
+        const s = habitReviewStats(h, start, end);
+        lines.push(`  ${h.emoji || ''} ${h.name} — ${s.done}/${s.scheduled} days (${s.pct}%)`);
+      });
+      lines.push('');
+    }
+
+    const supplements = activeSupplements();
+    if (supplements.length) {
+      lines.push('Supplements:');
+      supplements.forEach(s => {
+        const stat = supplementReviewStats(s, start, end);
+        lines.push(`  ${s.emoji || ''} ${s.name} — ${stat.pct}% adherence`);
+      });
+      lines.push('');
+    }
+
+    const yearlyList = activeYearlyHabits();
+    if (yearlyList.length) {
+      lines.push('Yearly goals:');
+      yearlyList.forEach(h => {
+        const status = yearlyPaceStatus(h);
+        lines.push(`  ${h.emoji || ''} ${h.name} — ${status.value}/${status.target} (${status.status})`);
+      });
+    }
+
+    return lines.join('\n').trim();
+  }
+
+  function syncReviewPeriodButtons() {
+    $('#review-period-segmented').querySelectorAll('.segmented-btn').forEach(b => {
+      b.classList.toggle('selected', b.dataset.period === reviewPeriod);
+    });
+  }
+  $('#review-period-segmented').querySelectorAll('.segmented-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      reviewPeriod = btn.dataset.period;
+      syncReviewPeriodButtons();
+      renderReview();
+    });
+  });
+  $('#review-share-btn').addEventListener('click', () => {
+    shareText(reviewPeriod === 'week' ? 'Weekly review' : 'Monthly review', reviewSummaryText());
+  });
+
   function renderAll() {
     renderStats();
+    renderReview();
     renderOverviewHeatmap();
     renderHabitList();
     renderYearlyList();
@@ -677,6 +909,8 @@
     $('#habit-unit').value = '';
     $('#habit-id').value = '';
     $('#delete-habit-btn').hidden = true;
+    $('#habit-active-row').hidden = true;
+    $('#habit-active').checked = true;
     $('#habit-sheet-title').textContent = 'Add habit';
     setFormType('check');
     buildEmojiRow(); buildColorRow(); buildDayRow();
@@ -694,6 +928,8 @@
     $('#habit-unit').value = habit.unit || '';
     $('#habit-id').value = habit.id;
     $('#delete-habit-btn').hidden = false;
+    $('#habit-active-row').hidden = false;
+    $('#habit-active').checked = !habit.archived;
     $('#habit-sheet-title').textContent = 'Edit habit';
     setFormType(habit.type);
     buildEmojiRow(); buildColorRow(); buildDayRow();
@@ -710,7 +946,7 @@
 
     if (editingHabitId) {
       const h = state.habits.find(h => h.id === editingHabitId);
-      Object.assign(h, { name, emoji: formEmoji, color: formColor, days: [...formDays], type: formType, target, unit });
+      Object.assign(h, { name, emoji: formEmoji, color: formColor, days: [...formDays], type: formType, target, unit, archived: !$('#habit-active').checked });
     } else {
       state.habits.push({
         id: 'h_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
@@ -777,6 +1013,8 @@
     $('#yearly-unit').value = '';
     $('#yearly-id').value = '';
     $('#delete-yearly-btn').hidden = true;
+    $('#yearly-active-row').hidden = true;
+    $('#yearly-active').checked = true;
     $('#yearly-form-sheet-title').textContent = 'Add yearly goal';
     buildYearlyEmojiRow(); buildYearlyColorRow();
   }
@@ -792,6 +1030,8 @@
     $('#yearly-unit').value = habit.unit || '';
     $('#yearly-id').value = habit.id;
     $('#delete-yearly-btn').hidden = false;
+    $('#yearly-active-row').hidden = false;
+    $('#yearly-active').checked = !habit.archived;
     $('#yearly-form-sheet-title').textContent = 'Edit yearly goal';
     buildYearlyEmojiRow(); buildYearlyColorRow();
     openSheet('yearly-form-sheet');
@@ -806,7 +1046,7 @@
 
     if (editingYearlyId) {
       const h = state.yearlyHabits.find(h => h.id === editingYearlyId);
-      Object.assign(h, { name, emoji: yearlyFormEmoji, color: yearlyFormColor, target, unit });
+      Object.assign(h, { name, emoji: yearlyFormEmoji, color: yearlyFormColor, target, unit, archived: !$('#yearly-active').checked });
     } else {
       state.yearlyHabits.push({
         id: 'y_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
@@ -817,6 +1057,7 @@
     saveState();
     closeSheet('yearly-form-sheet');
     renderYearlyList();
+    renderReview();
   });
 
   $('#delete-yearly-btn').addEventListener('click', () => {
@@ -827,6 +1068,7 @@
     saveState();
     closeSheet('yearly-form-sheet');
     renderYearlyList();
+    renderReview();
   });
 
   $('#add-yearly-btn').addEventListener('click', openAddYearly);
@@ -889,6 +1131,7 @@
     saveState();
     renderYearlyDetail();
     renderYearlyList();
+    renderReview();
     showToast('Saved');
   });
 
@@ -963,6 +1206,8 @@
     $('#supplement-stock-count').value = '';
     $('#supplement-id').value = '';
     $('#delete-supplement-btn').hidden = true;
+    $('#supplement-active-row').hidden = true;
+    $('#supplement-active').checked = true;
     $('#supplement-form-sheet-title').textContent = 'Add supplement';
     buildSupplementEmojiRow(); buildSupplementColorRow(); buildSupplementTimeRow();
   }
@@ -982,6 +1227,8 @@
     $('#supplement-stock-count').value = supp.stockEnabled ? (supp.stockRemaining || 0) : '';
     $('#supplement-id').value = supp.id;
     $('#delete-supplement-btn').hidden = false;
+    $('#supplement-active-row').hidden = false;
+    $('#supplement-active').checked = !supp.archived;
     $('#supplement-form-sheet-title').textContent = 'Edit supplement';
     buildSupplementEmojiRow(); buildSupplementColorRow(); buildSupplementTimeRow();
     openSheet('supplement-form-sheet');
@@ -999,7 +1246,7 @@
 
     if (editingSupplementId) {
       const s = state.supplements.find(s => s.id === editingSupplementId);
-      Object.assign(s, { name, emoji: supplementFormEmoji, color: supplementFormColor, dose, unit, times: [...supplementFormTimes], stockEnabled });
+      Object.assign(s, { name, emoji: supplementFormEmoji, color: supplementFormColor, dose, unit, times: [...supplementFormTimes], stockEnabled, archived: !$('#supplement-active').checked });
       if (stockEnabled) s.stockRemaining = stockRemaining;
     } else {
       const supp = {
@@ -1014,6 +1261,7 @@
     saveState();
     closeSheet('supplement-form-sheet');
     renderSupplementList();
+    renderReview();
   });
 
   $('#delete-supplement-btn').addEventListener('click', () => {
@@ -1024,6 +1272,7 @@
     saveState();
     closeSheet('supplement-form-sheet');
     renderSupplementList();
+    renderReview();
   });
 
   $('#add-supplement-btn').addEventListener('click', openAddSupplement);
@@ -1126,6 +1375,7 @@
         saveState();
         openSupplementDayEditor(supp, ds);
         renderSupplementList();
+        renderReview();
       });
       row.appendChild(btn);
     });
@@ -1469,7 +1719,7 @@
   /* ---------------- share a day's summary ---------------- */
   function daySummaryText(ds) {
     const habits = activeHabits().filter(h => isScheduled(h, ds));
-    const lines = [`${humanDateLong(ds)} — Habits summary`, ''];
+    const lines = [`${humanDateLong(ds)} — Keystone summary`, ''];
     let doneCount = 0;
     habits.forEach(h => {
       const done = isDone(h, ds);
@@ -1500,11 +1750,9 @@
     return lines.join('\n');
   }
 
-  async function shareDay(ds) {
-    if (!ds) return;
-    const text = daySummaryText(ds);
+  async function shareText(title, text) {
     if (navigator.share) {
-      try { await navigator.share({ title: 'Habits summary', text }); return; }
+      try { await navigator.share({ title, text }); return; }
       catch (e) { if (e && e.name === 'AbortError') return; }
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1517,8 +1765,42 @@
     showToast("Couldn't share on this device");
   }
 
+  async function shareDay(ds) {
+    if (!ds) return;
+    await shareText('Keystone summary', daySummaryText(ds));
+  }
+
   /* ---------------- settings ---------------- */
-  $('#settings-btn').addEventListener('click', () => { syncThemeButtons(); openSheet('settings-sheet'); });
+  function renderArchivedList() {
+    const container = $('#archived-list');
+    container.innerHTML = '';
+    const archivedHabits = state.habits.filter(h => h.archived).map(h => ({ item: h, type: 'Habit', restore: () => { h.archived = false; renderAll(); } }));
+    const archivedSupplements = state.supplements.filter(s => s.archived).map(s => ({ item: s, type: 'Supplement', restore: () => { s.archived = false; renderAll(); } }));
+    const archivedYearly = state.yearlyHabits.filter(h => h.archived).map(h => ({ item: h, type: 'Yearly goal', restore: () => { h.archived = false; renderAll(); } }));
+    const all = [...archivedHabits, ...archivedSupplements, ...archivedYearly];
+
+    $('#archived-empty').hidden = all.length > 0;
+    all.forEach(({ item, type, restore }) => {
+      const row = document.createElement('div');
+      row.className = 'yearly-history-row';
+      const label = document.createElement('span');
+      label.textContent = `${item.emoji || ''} ${item.name} · ${type}`;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-secondary';
+      btn.textContent = 'Restore';
+      btn.addEventListener('click', () => {
+        restore();
+        saveState();
+        renderArchivedList();
+        showToast(`${item.name} restored`);
+      });
+      row.append(label, btn);
+      container.appendChild(row);
+    });
+  }
+
+  $('#settings-btn').addEventListener('click', () => { syncThemeButtons(); renderArchivedList(); openSheet('settings-sheet'); });
 
   function applyTheme(theme) {
     if (theme === 'auto') document.documentElement.removeAttribute('data-theme');
@@ -1645,6 +1927,7 @@
 
   applyTheme(state.settings.theme);
   setTodayLabel();
+  syncReviewPeriodButtons();
   renderAll();
   initTodayNote();
   initInstallTip();
