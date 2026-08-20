@@ -568,7 +568,7 @@ input { font: inherit; }
 .field-shrink { flex: 0 0 auto; width: 110px; }
 .field-grow { flex: 1; }
 
-input[type="text"], input[type="number"], input[type="date"] {
+input[type="text"], input[type="number"], input[type="date"], input[type="email"], input[type="password"] {
   border: 1px solid var(--border-strong);
   background: var(--surface-2);
   border-radius: 10px;
@@ -578,6 +578,8 @@ input[type="text"], input[type="number"], input[type="date"] {
   width: 100%;
 }
 input:focus { outline: 2px solid var(--series-1); outline-offset: 1px; }
+
+.sync-box { display: flex; flex-direction: column; gap: 10px; }
 
 .emoji-row, .color-row, .day-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .emoji-choice, .color-choice, .day-choice {

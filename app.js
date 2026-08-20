@@ -95,6 +95,9 @@
 
   function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (window.KeystoneApp && typeof window.KeystoneApp.onLocalSave === 'function') {
+      window.KeystoneApp.onLocalSave(state);
+    }
   }
 
   /* ---------------- habit logic ---------------- */
@@ -1937,4 +1940,30 @@
       navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW registration failed', err));
     });
   }
+
+  /* ---------------- bridge for sync.js (cloud sync) ---------------- */
+  window.KeystoneApp = {
+    getState: () => state,
+    replaceState: (newState) => {
+      if (!newState || typeof newState !== 'object') return;
+      state = Object.assign(defaultState(), newState, {
+        habits: Array.isArray(newState.habits) ? newState.habits : [],
+        logs: newState.logs && typeof newState.logs === 'object' ? newState.logs : {},
+        notes: newState.notes && typeof newState.notes === 'object' ? newState.notes : {},
+        habitNotes: newState.habitNotes && typeof newState.habitNotes === 'object' ? newState.habitNotes : {},
+        yearlyHabits: Array.isArray(newState.yearlyHabits) ? newState.yearlyHabits : [],
+        yearlyLogs: newState.yearlyLogs && typeof newState.yearlyLogs === 'object' ? newState.yearlyLogs : {},
+        supplements: Array.isArray(newState.supplements) ? newState.supplements : [],
+        supplementLogs: newState.supplementLogs && typeof newState.supplementLogs === 'object' ? newState.supplementLogs : {},
+        settings: Object.assign({ theme: 'auto' }, newState.settings || {})
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      applyTheme(state.settings.theme);
+      syncReviewPeriodButtons();
+      renderAll();
+      initTodayNote();
+    },
+    onLocalSave: null,
+    toast: (msg) => showToast(msg)
+  };
 })();

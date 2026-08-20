@@ -559,8 +559,30 @@
       <div class="settings-divider"></div>
 
       <div class="field">
-        <span class="field-label">Sync across your devices</span>
-        <p class="field-hint">This dashboard installs on each device separately and stores data on that device only. To carry your habits and history from one device to another: export a backup file, then import it on the other device. Saving the file to iCloud Drive (or AirDropping it) keeps a copy handy on all your devices.</p>
+        <span class="field-label">Cloud sync</span>
+        <p class="field-hint" id="sync-status-text">Not signed in — your data stays on this device only.</p>
+      </div>
+
+      <div id="sync-signed-out" class="sync-box">
+        <input type="email" id="sync-email" placeholder="you@example.com" autocomplete="email">
+        <input type="password" id="sync-password" placeholder="Password (6+ characters)" autocomplete="current-password">
+        <div class="settings-row">
+          <button type="button" id="sync-signin-btn" class="btn btn-secondary">Sign in</button>
+          <button type="button" id="sync-signup-btn" class="btn btn-secondary">Create account</button>
+          <button type="button" id="sync-forgot-btn" class="btn btn-secondary">Forgot password?</button>
+        </div>
+      </div>
+
+      <div id="sync-signed-in" class="sync-box" hidden>
+        <p class="field-hint">Signed in as <strong id="sync-email-display"></strong></p>
+        <button type="button" id="sync-signout-btn" class="btn btn-secondary btn-block">Sign out</button>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <div class="field">
+        <span class="field-label">Manual backup</span>
+        <p class="field-hint">Works with or without cloud sync — a snapshot you can save anywhere (iCloud Drive, email, AirDrop) or move data across devices by hand.</p>
       </div>
 
       <div class="settings-row">
@@ -590,5 +612,6 @@
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="app.js"></script>
+<script type="module" src="sync.js"></script>
 </body>
 </html>
