@@ -298,6 +298,42 @@
     return { status, cls, value, target, pct: Math.min(100, Math.round((value / target) * 100)) };
   }
 
+  function projectedFinish(habit) {
+    const year = currentYear();
+    const value = getYearlyValue(habit, year);
+    const target = habit.target || 1;
+    const startOfYear = new Date(Number(year), 0, 1);
+    const endOfYear = new Date(Number(year), 11, 31);
+    const elapsedDays = Math.round((todayDate() - startOfYear) / 86400000) + 1;
+    const daysLeftInYear = Math.max(0, Math.round((endOfYear - todayDate()) / 86400000));
+
+    if (value >= target) return { status: 'reached', daysLeftInYear };
+    if (elapsedDays <= 0 || value <= 0) return { status: 'no-data', daysLeftInYear };
+
+    const rate = value / elapsedDays;
+    const daysNeeded = Math.ceil((target - value) / rate);
+    if (daysNeeded > 730) return { status: 'unlikely', daysLeftInYear };
+    const projectedDate = addDays(todayDate(), daysNeeded);
+    const withinYear = projectedDate <= endOfYear;
+
+    return {
+      status: withinYear ? 'on-pace' : 'late',
+      date: fmt(projectedDate),
+      daysLeftInYear
+    };
+  }
+
+  function projectedFinishLabel(habit) {
+    const p = projectedFinish(habit);
+    if (p.status === 'reached') return '🎉 Reached';
+    if (p.status === 'no-data') return 'Not enough data';
+    if (p.status === 'unlikely') return 'Unlikely at this pace';
+    const d = parseLocal(p.date);
+    const sameYear = d.getFullYear() === todayDate().getFullYear();
+    const label = d.toLocaleDateString(undefined, sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' });
+    return p.status === 'late' ? `~${label} (past Dec 31)` : `~${label}`;
+  }
+
   /* ---------------- daily notes ---------------- */
   function getNote(ds) { return state.notes[ds] || ''; }
   function setNote(ds, text) {
@@ -1098,13 +1134,20 @@
 
     const stats = $('#yearly-detail-stats');
     stats.innerHTML = '';
-    [['This year', `${value}/${target}`], ['Progress', `${pct}%`], ['Remaining', String(Math.max(0, target - value))]]
-      .forEach(([label, val]) => {
+    [
+      ['This year', `${value}/${target}`],
+      ['Progress', `${pct}%`],
+      ['Remaining', String(Math.max(0, target - value))],
+      ['Projected finish', projectedFinishLabel(habit)]
+    ].forEach(([label, val]) => {
         const div = document.createElement('div');
         div.className = 'detail-stat';
         div.innerHTML = `<p class="stat-label">${label}</p><p class="stat-value">${val}</p>`;
         stats.appendChild(div);
       });
+
+    const daysLeftInYear = projectedFinish(habit).daysLeftInYear;
+    $('#yearly-days-left-hint').textContent = `${daysLeftInYear} day${daysLeftInYear === 1 ? '' : 's'} left in ${year}`;
 
     $('#yearly-detail-meter').style.setProperty('--habit-color', habitColorVar(habit));
     $('#yearly-detail-fill').style.width = `${pct}%`;
