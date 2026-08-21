@@ -313,6 +313,26 @@
     return { pct: dayCount ? Math.round(sumPct / dayCount) : 0 };
   }
 
+  const AT_RISK_DROP_THRESHOLD = 25;
+  const AT_RISK_MAX_RECENT_PCT = 80;
+
+  function habitTrend(habit) {
+    const today = todayDate();
+    const recent = habitReviewStats(habit, addDays(today, -6), today);
+    const prior = habitReviewStats(habit, addDays(today, -13), addDays(today, -7));
+    const atRisk = recent.scheduled >= 2 && prior.scheduled >= 2 &&
+      (prior.pct - recent.pct) >= AT_RISK_DROP_THRESHOLD && recent.pct < AT_RISK_MAX_RECENT_PCT;
+    return { recentPct: recent.pct, priorPct: prior.pct, atRisk };
+  }
+
+  function supplementTrend(supp) {
+    const today = todayDate();
+    const recent = supplementReviewStats(supp, addDays(today, -6), today);
+    const prior = supplementReviewStats(supp, addDays(today, -13), addDays(today, -7));
+    const atRisk = (prior.pct - recent.pct) >= AT_RISK_DROP_THRESHOLD && recent.pct < AT_RISK_MAX_RECENT_PCT;
+    return { recentPct: recent.pct, priorPct: prior.pct, atRisk };
+  }
+
   function yearlyPaceStatus(habit) {
     const year = currentYear();
     const value = getYearlyValue(habit, year);
@@ -761,7 +781,7 @@
     if (statusInfo) {
       const badge = document.createElement('span');
       badge.className = `status-badge status-${statusInfo.cls}`;
-      badge.textContent = `${statusInfo.status} · ${statusInfo.value}/${statusInfo.target}`;
+      badge.textContent = statusInfo.label || `${statusInfo.status} · ${statusInfo.value}/${statusInfo.target}`;
       top.appendChild(badge);
     } else {
       const value = document.createElement('span');
@@ -816,6 +836,25 @@
       stats.appendChild(div);
     });
 
+    const atRiskItems = [];
+    habits.forEach(h => {
+      const t = habitTrend(h);
+      if (t.atRisk) atRiskItems.push({ item: h, recentPct: t.recentPct, priorPct: t.priorPct });
+    });
+    supplements.forEach(s => {
+      const t = supplementTrend(s);
+      if (t.atRisk) atRiskItems.push({ item: s, recentPct: t.recentPct, priorPct: t.priorPct });
+    });
+    atRiskItems.sort((a, b) => (b.priorPct - b.recentPct) - (a.priorPct - a.recentPct));
+
+    $('#review-atrisk-group').hidden = atRiskItems.length === 0;
+    const atRiskList = $('#review-atrisk-list');
+    atRiskList.innerHTML = '';
+    atRiskItems.forEach(({ item, recentPct, priorPct }) => {
+      const badge = { cls: 'critical', label: `${recentPct}% this week, was ${priorPct}%` };
+      atRiskList.appendChild(buildReviewRow(item, null, recentPct, badge));
+    });
+
     $('#review-habits-group').hidden = habitRows.length === 0;
     const habitsList = $('#review-habits-list');
     habitsList.innerHTML = '';
@@ -844,6 +883,17 @@
     const { start, end, label } = reviewRange(reviewPeriod);
     const periodName = reviewPeriod === 'week' ? 'Weekly' : 'Monthly';
     const lines = [`${periodName} review — ${label}`, ''];
+
+    const atRisk = [];
+    activeHabits().forEach(h => { const t = habitTrend(h); if (t.atRisk) atRisk.push({ item: h, ...t }); });
+    activeSupplements().forEach(s => { const t = supplementTrend(s); if (t.atRisk) atRisk.push({ item: s, ...t }); });
+    if (atRisk.length) {
+      lines.push('⚠️ Needs attention:');
+      atRisk.forEach(({ item, recentPct, priorPct }) => {
+        lines.push(`  ${item.emoji || ''} ${item.name} — ${recentPct}% this week, was ${priorPct}%`);
+      });
+      lines.push('');
+    }
 
     const habits = activeHabits();
     if (habits.length) {
