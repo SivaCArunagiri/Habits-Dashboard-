@@ -53,6 +53,10 @@
     const d = parseLocal(str);
     return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   }
+  function humanMonth(str) {
+    const d = parseLocal(str);
+    return d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  }
   function humanDateLong(str) {
     const d = parseLocal(str);
     return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
@@ -444,6 +448,38 @@
       days.push({ ds, value: Number(getRaw(habit, ds)) || 0 });
     }
     return days;
+  }
+  function computeMonthlyCompletion(habit, monthsCount) {
+    const today = todayDate();
+    const months = [];
+    for (let i = monthsCount - 1; i >= 0; i--) {
+      const monthStart = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+      const cap = monthEnd > today ? today : monthEnd;
+      let scheduled = 0, done = 0;
+      for (let d = new Date(monthStart); d <= cap; d = addDays(d, 1)) {
+        const ds = fmt(d);
+        if (isScheduled(habit, ds)) { scheduled++; if (isDone(habit, ds)) done++; }
+      }
+      months.push({ monthStart: fmt(monthStart), scheduled, done, pct: scheduled ? Math.round((done / scheduled) * 100) : null });
+    }
+    return months;
+  }
+  function computeMonthlyAverage(habit, monthsCount) {
+    const today = todayDate();
+    const months = [];
+    for (let i = monthsCount - 1; i >= 0; i--) {
+      const monthStart = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+      const cap = monthEnd > today ? today : monthEnd;
+      let total = 0, scheduled = 0;
+      for (let d = new Date(monthStart); d <= cap; d = addDays(d, 1)) {
+        const ds = fmt(d);
+        if (isScheduled(habit, ds)) { scheduled++; total += Number(getRaw(habit, ds)) || 0; }
+      }
+      months.push({ monthStart: fmt(monthStart), scheduled, avg: scheduled ? Math.round((total / scheduled) * 10) / 10 : 0 });
+    }
+    return months;
   }
 
   /* ---------------- stats ---------------- */
@@ -1664,6 +1700,21 @@
   /* ---------------- detail sheet ---------------- */
   let detailHabitId = null;
   let selectedDetailDate = null;
+  let trendRange = 'short';
+
+  function syncTrendRangeButtons() {
+    $('#trend-range-segmented').querySelectorAll('.segmented-btn').forEach(b => {
+      b.classList.toggle('selected', b.dataset.range === trendRange);
+    });
+  }
+  $('#trend-range-segmented').querySelectorAll('.segmented-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      trendRange = btn.dataset.range;
+      syncTrendRangeButtons();
+      const habit = state.habits.find(h => h.id === detailHabitId);
+      if (habit) renderDetailTrend(habit);
+    });
+  });
 
   function openDetail(habitId) {
     detailHabitId = habitId;
@@ -1741,12 +1792,15 @@
     container.innerHTML = '';
     legend.textContent = '';
     const usableHeight = 88;
+    syncTrendRangeButtons();
+    const long = trendRange === 'long';
 
     if (habit.type === 'check') {
-      $('#trend-title').textContent = 'Weekly completion';
-      const weeks = computeWeeklyCompletion(habit, 12);
-      const thisWeek = fmt(startOfWeek(todayDate()));
-      weeks.forEach(w => {
+      $('#trend-title').textContent = long ? 'Monthly completion' : 'Weekly completion';
+      const buckets = long ? computeMonthlyCompletion(habit, 12) : computeWeeklyCompletion(habit, 12);
+      const current = long ? fmt(new Date(todayDate().getFullYear(), todayDate().getMonth(), 1)) : fmt(startOfWeek(todayDate()));
+      buckets.forEach(w => {
+        const bucketStart = long ? w.monthStart : w.weekStart;
         const col = document.createElement('div');
         col.className = 'trend-bar-col';
         const bar = document.createElement('div');
@@ -1754,41 +1808,74 @@
         const pct = w.pct === null ? 0 : w.pct;
         bar.style.height = `${Math.max(2, Math.round((pct / 100) * usableHeight))}px`;
         if (w.pct !== null && w.pct > 0) bar.style.background = habitColorVar(habit);
-        if (w.weekStart === thisWeek) bar.classList.add('today');
+        if (bucketStart === current) bar.classList.add('today');
+        const label = long ? humanMonth(bucketStart) : `Week of ${humanDate(bucketStart)}`;
         bar.title = w.scheduled
-          ? `Week of ${humanDate(w.weekStart)} · ${w.pct}% (${w.done}/${w.scheduled})`
-          : `Week of ${humanDate(w.weekStart)} · no scheduled days`;
+          ? `${label} · ${w.pct}% (${w.done}/${w.scheduled})`
+          : `${label} · no scheduled days`;
         col.appendChild(bar);
         container.appendChild(col);
       });
     } else {
-      $('#trend-title').textContent = `Daily ${habit.unit || 'amount'}`;
-      const days = computeDailyValues(habit, 21);
       const target = habit.target || 1;
-      const maxVal = Math.max(target, ...days.map(d => d.value), 1);
-      days.forEach(d => {
-        const col = document.createElement('div');
-        col.className = 'trend-bar-col';
-        const bar = document.createElement('div');
-        bar.className = 'trend-bar';
-        const heightPct = d.value / maxVal;
-        bar.style.height = `${Math.max(2, Math.round(heightPct * usableHeight))}px`;
-        const ratio = d.value / target;
-        if (d.value > 0) {
-          bar.style.background = ratio >= 1
-            ? habitColorVar(habit)
-            : `color-mix(in srgb, ${habitColorVar(habit)} ${Math.round(Math.min(1, ratio) * 70) + 15}%, var(--surface-2))`;
-        }
-        if (d.ds === todayStr()) bar.classList.add('today');
-        bar.title = `${humanDate(d.ds)} · ${d.value}${habit.unit ? ' ' + habit.unit : ''} of ${target}`;
-        col.appendChild(bar);
-        container.appendChild(col);
-      });
-      const line = document.createElement('div');
-      line.className = 'trend-target-line';
-      line.style.bottom = `${Math.round(Math.min(1, target / maxVal) * usableHeight) + 1}px`;
-      container.appendChild(line);
-      legend.textContent = `Target: ${target}${habit.unit ? ' ' + habit.unit : ''}`;
+      if (long) {
+        $('#trend-title').textContent = `Monthly avg ${habit.unit || 'amount'}`;
+        const months = computeMonthlyAverage(habit, 12);
+        const currentMonth = fmt(new Date(todayDate().getFullYear(), todayDate().getMonth(), 1));
+        const maxVal = Math.max(target, ...months.map(m => m.avg), 1);
+        months.forEach(m => {
+          const col = document.createElement('div');
+          col.className = 'trend-bar-col';
+          const bar = document.createElement('div');
+          bar.className = 'trend-bar';
+          const heightPct = m.avg / maxVal;
+          bar.style.height = `${Math.max(2, Math.round(heightPct * usableHeight))}px`;
+          const ratio = m.avg / target;
+          if (m.avg > 0) {
+            bar.style.background = ratio >= 1
+              ? habitColorVar(habit)
+              : `color-mix(in srgb, ${habitColorVar(habit)} ${Math.round(Math.min(1, ratio) * 70) + 15}%, var(--surface-2))`;
+          }
+          if (m.monthStart === currentMonth) bar.classList.add('today');
+          bar.title = m.scheduled
+            ? `${humanMonth(m.monthStart)} · avg ${m.avg}${habit.unit ? ' ' + habit.unit : ''} of ${target}`
+            : `${humanMonth(m.monthStart)} · no scheduled days`;
+          col.appendChild(bar);
+          container.appendChild(col);
+        });
+        const line = document.createElement('div');
+        line.className = 'trend-target-line';
+        line.style.bottom = `${Math.round(Math.min(1, target / maxVal) * usableHeight) + 1}px`;
+        container.appendChild(line);
+        legend.textContent = `Target: ${target}${habit.unit ? ' ' + habit.unit : ''}`;
+      } else {
+        $('#trend-title').textContent = `Daily ${habit.unit || 'amount'}`;
+        const days = computeDailyValues(habit, 21);
+        const maxVal = Math.max(target, ...days.map(d => d.value), 1);
+        days.forEach(d => {
+          const col = document.createElement('div');
+          col.className = 'trend-bar-col';
+          const bar = document.createElement('div');
+          bar.className = 'trend-bar';
+          const heightPct = d.value / maxVal;
+          bar.style.height = `${Math.max(2, Math.round(heightPct * usableHeight))}px`;
+          const ratio = d.value / target;
+          if (d.value > 0) {
+            bar.style.background = ratio >= 1
+              ? habitColorVar(habit)
+              : `color-mix(in srgb, ${habitColorVar(habit)} ${Math.round(Math.min(1, ratio) * 70) + 15}%, var(--surface-2))`;
+          }
+          if (d.ds === todayStr()) bar.classList.add('today');
+          bar.title = `${humanDate(d.ds)} · ${d.value}${habit.unit ? ' ' + habit.unit : ''} of ${target}`;
+          col.appendChild(bar);
+          container.appendChild(col);
+        });
+        const line = document.createElement('div');
+        line.className = 'trend-target-line';
+        line.style.bottom = `${Math.round(Math.min(1, target / maxVal) * usableHeight) + 1}px`;
+        container.appendChild(line);
+        legend.textContent = `Target: ${target}${habit.unit ? ' ' + habit.unit : ''}`;
+      }
     }
 
     requestAnimationFrame(() => {

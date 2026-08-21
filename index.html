@@ -251,7 +251,13 @@
 
       <div class="trend-panel">
         <div class="trend-head">
-          <span id="trend-title" class="field-label">Trend</span>
+          <div class="trend-head-left">
+            <span id="trend-title" class="field-label">Trend</span>
+            <div class="segmented trend-range-segmented" id="trend-range-segmented">
+              <button type="button" data-range="short" class="segmented-btn">Weeks</button>
+              <button type="button" data-range="long" class="segmented-btn">Months</button>
+            </div>
+          </div>
           <div id="trend-legend" class="heatmap-legend"></div>
         </div>
         <div class="heatmap-scroll">
