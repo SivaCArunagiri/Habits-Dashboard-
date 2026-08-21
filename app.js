@@ -5,7 +5,7 @@
   const EMOJI_PRESETS = [
     '✅','🎯','🔥','⭐','🏆','📅','⏰',
     '🏃','🚴','🏋️','🚶','🏊','🤸','⚽','🏀','🎾','🥊','🏓','🧗','⛰️',
-    '💪','🧘','🛌','😴','❤️','🧠','🦷','🧴','🪥','🚿','🧖',
+    '💪','🧘','🛌','😴','❤️','🧠','🦷','🧴','🪥','🚿','🧖','⚖️',
     '💧','🥗','🍎','🥦','☕','🍵','🧃','🥤','🍳','🥛',
     '📖','📚','✍️','🎓','💻','⌨️','📝','💡','🗣️','🧩',
     '🙏','🌙','☀️','🌿','🌳','🌱',
@@ -206,6 +206,17 @@
     if (Object.keys(state.yearlyLogs[habit.id]).length === 0) delete state.yearlyLogs[habit.id];
     if (year === currentYear()) recordYearlyHistory(habit, todayStr(), n);
   }
+  function yearlyProgress(habit, value) {
+    if (habit.direction === 'down') {
+      const start = habit.startValue != null ? Number(habit.startValue) : value;
+      const target = habit.target || 0;
+      const span = Math.max(start - target, 0.0001);
+      const progressed = start - value;
+      return { progressed, span, remaining: Math.max(0, value - target), pct: Math.max(0, Math.min(100, Math.round((progressed / span) * 100))) };
+    }
+    const target = habit.target || 1;
+    return { progressed: value, span: target, remaining: Math.max(0, target - value), pct: Math.max(0, Math.min(100, Math.round((value / target) * 100))) };
+  }
   function recordYearlyHistory(habit, ds, total) {
     if (!state.yearlyHistory[habit.id]) state.yearlyHistory[habit.id] = {};
     state.yearlyHistory[habit.id][ds] = total;
@@ -336,36 +347,36 @@
   function yearlyPaceStatus(habit) {
     const year = currentYear();
     const value = getYearlyValue(habit, year);
-    const target = habit.target || 1;
+    const { progressed, span, pct } = yearlyProgress(habit, value);
     const startOfYear = new Date(Number(year), 0, 1);
     const endOfYear = new Date(Number(year), 11, 31);
     const totalDays = Math.round((endOfYear - startOfYear) / 86400000) + 1;
     const elapsedDays = Math.round((todayDate() - startOfYear) / 86400000) + 1;
-    const expected = target * (elapsedDays / totalDays);
-    const ratio = expected > 0 ? value / expected : (value > 0 ? 2 : 1);
+    const expected = span * (elapsedDays / totalDays);
+    const ratio = expected > 0 ? progressed / expected : (progressed > 0 ? 2 : 1);
     let status, cls;
-    if (habit.createdAt === todayStr() && value === 0) { status = 'Just started'; cls = 'good'; }
+    if (habit.createdAt === todayStr() && progressed === 0) { status = 'Just started'; cls = 'good'; }
     else if (ratio >= 1.05) { status = 'Ahead'; cls = 'good'; }
     else if (ratio >= 0.8) { status = 'On track'; cls = 'good'; }
     else if (ratio >= 0.5) { status = 'Behind'; cls = 'warning'; }
     else { status = 'Far behind'; cls = 'critical'; }
-    return { status, cls, value, target, pct: Math.min(100, Math.round((value / target) * 100)) };
+    return { status, cls, value, target: habit.target, pct };
   }
 
   function projectedFinish(habit) {
     const year = currentYear();
     const value = getYearlyValue(habit, year);
-    const target = habit.target || 1;
+    const { progressed, span } = yearlyProgress(habit, value);
     const startOfYear = new Date(Number(year), 0, 1);
     const endOfYear = new Date(Number(year), 11, 31);
     const elapsedDays = Math.round((todayDate() - startOfYear) / 86400000) + 1;
     const daysLeftInYear = Math.max(0, Math.round((endOfYear - todayDate()) / 86400000));
 
-    if (value >= target) return { status: 'reached', daysLeftInYear };
-    if (elapsedDays <= 0 || value <= 0) return { status: 'no-data', daysLeftInYear };
+    if (progressed >= span) return { status: 'reached', daysLeftInYear };
+    if (elapsedDays <= 0 || progressed <= 0) return { status: 'no-data', daysLeftInYear };
 
-    const rate = value / elapsedDays;
-    const daysNeeded = Math.ceil((target - value) / rate);
+    const rate = progressed / elapsedDays;
+    const daysNeeded = Math.ceil((span - progressed) / rate);
     if (daysNeeded > 730) return { status: 'unlikely', daysLeftInYear };
     const projectedDate = addDays(todayDate(), daysNeeded);
     const withinYear = projectedDate <= endOfYear;
@@ -650,7 +661,7 @@
 
       const value = getYearlyValue(habit, year);
       const target = habit.target || 1;
-      const pct = Math.min(100, Math.round((value / target) * 100));
+      const pct = yearlyProgress(habit, value).pct;
 
       const name = document.createElement('p');
       name.className = 'habit-name';
@@ -1100,6 +1111,20 @@
   let editingYearlyId = null;
   let yearlyFormEmoji = '🎯';
   let yearlyFormColor = 1;
+  let yearlyFormDirection = 'up';
+
+  function setYearlyFormDirection(dir) {
+    yearlyFormDirection = dir;
+    $('#yearly-direction-segmented').querySelectorAll('.segmented-btn').forEach(btn => {
+      btn.classList.toggle('selected', btn.dataset.direction === dir);
+    });
+    $('#yearly-start-row').hidden = dir !== 'down';
+    $('#yearly-target-label').textContent = dir === 'down' ? 'Target value' : 'Yearly target';
+    $('#yearly-target').placeholder = dir === 'down' ? '180' : '12';
+  }
+  $('#yearly-direction-segmented').querySelectorAll('.segmented-btn').forEach(btn => {
+    btn.addEventListener('click', () => setYearlyFormDirection(btn.dataset.direction));
+  });
 
   function buildYearlyEmojiRow() {
     const row = $('#yearly-emoji-row');
@@ -1133,12 +1158,14 @@
     yearlyFormColor = COLOR_SLOTS[state.yearlyHabits.length % COLOR_SLOTS.length];
     $('#yearly-name').value = '';
     $('#yearly-target').value = '';
+    $('#yearly-start').value = '';
     $('#yearly-unit').value = '';
     $('#yearly-id').value = '';
     $('#delete-yearly-btn').hidden = true;
     $('#yearly-active-row').hidden = true;
     $('#yearly-active').checked = true;
     $('#yearly-form-sheet-title').textContent = 'Add yearly goal';
+    setYearlyFormDirection('up');
     buildYearlyEmojiRow(); buildYearlyColorRow();
   }
 
@@ -1150,12 +1177,14 @@
     yearlyFormColor = habit.color;
     $('#yearly-name').value = habit.name;
     $('#yearly-target').value = habit.target || '';
+    $('#yearly-start').value = habit.startValue != null ? habit.startValue : '';
     $('#yearly-unit').value = habit.unit || '';
     $('#yearly-id').value = habit.id;
     $('#delete-yearly-btn').hidden = false;
     $('#yearly-active-row').hidden = false;
     $('#yearly-active').checked = !habit.archived;
     $('#yearly-form-sheet-title').textContent = 'Edit yearly goal';
+    setYearlyFormDirection(habit.direction === 'down' ? 'down' : 'up');
     buildYearlyEmojiRow(); buildYearlyColorRow();
     openSheet('yearly-form-sheet');
   }
@@ -1164,18 +1193,24 @@
     e.preventDefault();
     const name = $('#yearly-name').value.trim();
     if (!name) return;
-    const target = Math.max(1, parseInt($('#yearly-target').value, 10) || 1);
+    const direction = yearlyFormDirection;
+    const target = direction === 'down'
+      ? Math.max(0, parseInt($('#yearly-target').value, 10) || 0)
+      : Math.max(1, parseInt($('#yearly-target').value, 10) || 1);
+    const startValue = direction === 'down' ? Math.max(0, parseInt($('#yearly-start').value, 10) || 0) : null;
     const unit = $('#yearly-unit').value.trim();
 
     if (editingYearlyId) {
       const h = state.yearlyHabits.find(h => h.id === editingYearlyId);
-      Object.assign(h, { name, emoji: yearlyFormEmoji, color: yearlyFormColor, target, unit, archived: !$('#yearly-active').checked });
+      Object.assign(h, { name, emoji: yearlyFormEmoji, color: yearlyFormColor, target, unit, direction, startValue, archived: !$('#yearly-active').checked });
     } else {
-      state.yearlyHabits.push({
+      const habit = {
         id: 'y_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-        name, emoji: yearlyFormEmoji, color: yearlyFormColor, target, unit,
+        name, emoji: yearlyFormEmoji, color: yearlyFormColor, target, unit, direction, startValue,
         createdAt: todayStr(), archived: false
-      });
+      };
+      state.yearlyHabits.push(habit);
+      if (direction === 'down') setYearlyValue(habit, currentYear(), startValue);
     }
     saveState();
     closeSheet('yearly-form-sheet');
@@ -1215,16 +1250,17 @@
     const year = currentYear();
     const value = getYearlyValue(habit, year);
     const target = habit.target || 1;
-    const pct = Math.min(100, Math.round((value / target) * 100));
+    const { pct, remaining } = yearlyProgress(habit, value);
 
     $('#yearly-detail-sheet-title').textContent = `${habit.emoji} ${habit.name}`;
+    $('#yearly-value-label').textContent = habit.direction === 'down' ? 'Latest reading' : "This year's count";
 
     const stats = $('#yearly-detail-stats');
     stats.innerHTML = '';
     [
       ['This year', `${value}/${target}`],
       ['Progress', `${pct}%`],
-      ['Remaining', String(Math.max(0, target - value))],
+      ['Remaining', String(remaining)],
       ['Projected finish', projectedFinishLabel(habit)]
     ].forEach(([label, val]) => {
         const div = document.createElement('div');
@@ -1269,13 +1305,14 @@
 
     const year = currentYear();
     const target = habit.target || 1;
+    const startVal = habit.direction === 'down' ? (habit.startValue != null ? Number(habit.startValue) : target) : 0;
     const startOfYear = new Date(Number(year), 0, 1);
     const endOfYear = new Date(Number(year), 11, 31);
     const totalDays = Math.round((endOfYear - startOfYear) / 86400000) + 1;
     const todayIdx = Math.min(totalDays - 1, Math.round((todayDate() - startOfYear) / 86400000));
 
     const points = getYearlyHistoryPoints(habit, year);
-    const maxVal = Math.max(target, ...points.map(p => p.value), 1);
+    const maxVal = Math.max(target, startVal, ...points.map(p => p.value), 1);
 
     const W = 600, H = 180, PAD_X = 6, PAD_TOP = 10, PAD_BOTTOM = 20;
     const xScale = dayIdx => PAD_X + (dayIdx / (totalDays - 1)) * (W - PAD_X * 2);
@@ -1305,9 +1342,9 @@
       svg.appendChild(label);
     });
 
-    // ideal pace line: (day0, 0) -> (last day, target)
+    // ideal pace line: (day0, startVal) -> (last day, target)
     const idealPath = document.createElementNS(SVG_NS, 'path');
-    idealPath.setAttribute('d', `M ${xScale(0)} ${yScale(0)} L ${xScale(totalDays - 1)} ${yScale(target)}`);
+    idealPath.setAttribute('d', `M ${xScale(0)} ${yScale(startVal)} L ${xScale(totalDays - 1)} ${yScale(target)}`);
     idealPath.setAttribute('class', 'burndown-ideal');
     svg.appendChild(idealPath);
 

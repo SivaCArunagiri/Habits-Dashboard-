@@ -361,10 +361,25 @@
         <div class="color-row" id="yearly-color-row"></div>
       </div>
 
+      <div class="field">
+        <span class="field-label">Goal type</span>
+        <div class="segmented" id="yearly-direction-segmented">
+          <button type="button" data-direction="up" class="segmented-btn">Reach a target</button>
+          <button type="button" data-direction="down" class="segmented-btn">Reduce to a target</button>
+        </div>
+      </div>
+
+      <div class="field field-row" id="yearly-start-row" hidden>
+        <label class="field field-shrink">
+          <span class="field-label">Starting value</span>
+          <input type="number" id="yearly-start" min="0" step="1" inputmode="numeric" placeholder="200">
+        </label>
+      </div>
+
       <div class="field field-row">
         <label class="field field-shrink">
-          <span class="field-label">Yearly target</span>
-          <input type="number" id="yearly-target" min="1" step="1" inputmode="numeric" placeholder="12" required>
+          <span class="field-label" id="yearly-target-label">Yearly target</span>
+          <input type="number" id="yearly-target" min="0" step="1" inputmode="numeric" placeholder="12" required>
         </label>
         <label class="field field-grow">
           <span class="field-label">Unit</span>
@@ -417,7 +432,7 @@
 
       <div class="field field-row">
         <label class="field field-shrink">
-          <span class="field-label">This year's count</span>
+          <span class="field-label" id="yearly-value-label">This year's count</span>
           <input type="number" id="yearly-value-input" min="0" step="1" inputmode="numeric">
         </label>
         <button type="button" id="yearly-value-save" class="btn btn-secondary">Save</button>
