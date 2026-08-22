@@ -83,7 +83,7 @@
       version: 1, habits: [], logs: {}, notes: {}, habitNotes: {},
       yearlyHabits: [], yearlyLogs: {}, yearlyHistory: {},
       supplements: [], supplementLogs: {},
-      settings: { theme: 'auto' }
+      settings: { theme: 'auto' }, updatedAt: 0
     };
   }
 
@@ -103,7 +103,8 @@
         yearlyHistory: parsed.yearlyHistory && typeof parsed.yearlyHistory === 'object' ? parsed.yearlyHistory : {},
         supplements: Array.isArray(parsed.supplements) ? parsed.supplements : [],
         supplementLogs: parsed.supplementLogs && typeof parsed.supplementLogs === 'object' ? parsed.supplementLogs : {},
-        settings: Object.assign({ theme: 'auto' }, parsed.settings || {})
+        settings: Object.assign({ theme: 'auto' }, parsed.settings || {}),
+        updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : 0
       });
     } catch (e) {
       console.error('Failed to load state', e);
@@ -112,6 +113,7 @@
   }
 
   function saveState() {
+    state.updatedAt = Date.now();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     if (window.KeystoneApp && typeof window.KeystoneApp.onLocalSave === 'function') {
       window.KeystoneApp.onLocalSave(state);
@@ -2299,7 +2301,8 @@
         yearlyHistory: newState.yearlyHistory && typeof newState.yearlyHistory === 'object' ? newState.yearlyHistory : {},
         supplements: Array.isArray(newState.supplements) ? newState.supplements : [],
         supplementLogs: newState.supplementLogs && typeof newState.supplementLogs === 'object' ? newState.supplementLogs : {},
-        settings: Object.assign({ theme: 'auto' }, newState.settings || {})
+        settings: Object.assign({ theme: 'auto' }, newState.settings || {}),
+        updatedAt: typeof newState.updatedAt === 'number' ? newState.updatedAt : 0
       });
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       applyTheme(state.settings.theme);

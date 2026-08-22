@@ -37,6 +37,11 @@ function sanitize(state) {
 
 function mergeStates(local, remote) {
   const merged = JSON.parse(JSON.stringify(local));
+  // Whichever device saved more recently wins when the same date/habit was
+  // edited on both sides. Array collections (habits, etc) are always a safe
+  // additive union by id, regardless of recency, so they're merged separately below.
+  const localIsNewer = (Number(local.updatedAt) || 0) >= (Number(remote.updatedAt) || 0);
+
   ['habits', 'yearlyHabits', 'supplements'].forEach(key => {
     const remoteList = Array.isArray(remote[key]) ? remote[key] : [];
     const localIds = new Set((merged[key] || []).map(item => item.id));
@@ -46,10 +51,15 @@ function mergeStates(local, remote) {
     const remoteMap = remote[key] || {};
     merged[key] = merged[key] || {};
     Object.keys(remoteMap).forEach(id => {
-      merged[key][id] = Object.assign({}, remoteMap[id], merged[key][id]);
+      merged[key][id] = localIsNewer
+        ? Object.assign({}, remoteMap[id], merged[key][id])
+        : Object.assign({}, merged[key][id], remoteMap[id]);
     });
   });
-  merged.notes = Object.assign({}, remote.notes || {}, merged.notes || {});
+  merged.notes = localIsNewer
+    ? Object.assign({}, remote.notes || {}, merged.notes || {})
+    : Object.assign({}, merged.notes || {}, remote.notes || {});
+  merged.updatedAt = Math.max(Number(local.updatedAt) || 0, Number(remote.updatedAt) || 0);
   return merged;
 }
 
