@@ -191,7 +191,8 @@ input { font: inherit; }
   margin: 0 auto;
   padding: 18px 20px calc(90px + var(--safe-bottom));
 }
-.tab-panels { display: flex; flex-direction: column; gap: 20px; }
+.tab-panels { display: block; }
+.tab-panel { display: flex; flex-direction: column; gap: 20px; }
 
 /* ---------- tab navigation ---------- */
 .tab-nav {
@@ -749,6 +750,6 @@ input:focus { outline: 2px solid var(--series-1); outline-offset: 1px; }
 
 @media (max-width: 380px) {
   .dashboard { padding: 14px 14px calc(86px + var(--safe-bottom)); }
-  .tab-panels { gap: 16px; }
+  .tab-panel { gap: 16px; }
   .app-header { padding-left: 14px; padding-right: 14px; }
 }
