@@ -8,8 +8,8 @@
 
 <!-- PWA / installability -->
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fcfcfb">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1a1a19">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#faf7fc">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#18171c">
 
 <!-- iOS home-screen app behavior -->
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -20,6 +20,10 @@
 <link rel="icon" href="icons/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -46,6 +50,25 @@
 
 <main class="dashboard">
 
+  <nav class="tab-nav" id="tab-nav" aria-label="Sections">
+    <button type="button" class="tab-btn" data-tab="daily" aria-current="page">
+      <span class="tab-icon" aria-hidden="true">📋</span><span class="tab-label">Daily</span>
+    </button>
+    <button type="button" class="tab-btn" data-tab="review">
+      <span class="tab-icon" aria-hidden="true">📊</span><span class="tab-label">Review</span>
+    </button>
+    <button type="button" class="tab-btn" data-tab="supplements">
+      <span class="tab-icon" aria-hidden="true">💊</span><span class="tab-label">Supplements</span>
+    </button>
+    <button type="button" class="tab-btn" data-tab="yearly">
+      <span class="tab-icon" aria-hidden="true">🎯</span><span class="tab-label">Yearly</span>
+    </button>
+  </nav>
+
+  <div class="tab-panels">
+
+  <section class="tab-panel" data-tab-panel="daily">
+
   <section class="stat-grid" aria-label="Summary">
     <div class="stat-tile">
       <p class="stat-label">Today</p>
@@ -64,6 +87,51 @@
       <p class="stat-value" id="stat-count">–</p>
     </div>
   </section>
+
+  <section class="panel" aria-label="Consistency overview">
+    <div class="panel-header">
+      <h2>Consistency</h2>
+      <div class="heatmap-legend" aria-hidden="true">
+        <span>Less</span>
+        <span class="legend-swatch" data-step="0"></span>
+        <span class="legend-swatch" data-step="1"></span>
+        <span class="legend-swatch" data-step="2"></span>
+        <span class="legend-swatch" data-step="3"></span>
+        <span class="legend-swatch" data-step="4"></span>
+        <span>More</span>
+      </div>
+    </div>
+    <div class="heatmap-scroll">
+      <div id="overview-heatmap" class="heatmap" role="img" aria-label="Daily completion heatmap"></div>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Daily habits">
+    <div class="panel-header">
+      <h2>Daily habits</h2>
+    </div>
+    <ul id="habit-list" class="habit-list"></ul>
+    <div id="empty-state" class="empty-state" hidden>
+      <p class="empty-state-title">No habits yet</p>
+      <p class="empty-state-body">Add your first habit to start building your streak.</p>
+      <button type="button" id="empty-add-btn" class="btn btn-primary">+ Add a habit</button>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Today's note">
+    <div class="panel-header">
+      <h2>Today's note</h2>
+    </div>
+    <textarea id="today-note-input" class="note-textarea" rows="3" placeholder="How did today go?"></textarea>
+    <div class="settings-row note-actions">
+      <button type="button" id="share-today-btn" class="btn btn-secondary">Share today's summary</button>
+      <span id="today-note-saved" class="field-hint note-saved" hidden>Saved</span>
+    </div>
+  </section>
+
+  </section>
+
+  <section class="tab-panel" data-tab-panel="review" hidden>
 
   <section class="panel" id="review-panel" aria-label="Review">
     <div class="panel-header">
@@ -105,35 +173,9 @@
     <button type="button" id="review-share-btn" class="btn btn-secondary btn-block">Share this review</button>
   </section>
 
-  <section class="panel" aria-label="Consistency overview">
-    <div class="panel-header">
-      <h2>Consistency</h2>
-      <div class="heatmap-legend" aria-hidden="true">
-        <span>Less</span>
-        <span class="legend-swatch" data-step="0"></span>
-        <span class="legend-swatch" data-step="1"></span>
-        <span class="legend-swatch" data-step="2"></span>
-        <span class="legend-swatch" data-step="3"></span>
-        <span class="legend-swatch" data-step="4"></span>
-        <span>More</span>
-      </div>
-    </div>
-    <div class="heatmap-scroll">
-      <div id="overview-heatmap" class="heatmap" role="img" aria-label="Daily completion heatmap"></div>
-    </div>
   </section>
 
-  <section class="panel" aria-label="Daily habits">
-    <div class="panel-header">
-      <h2>Daily habits</h2>
-    </div>
-    <ul id="habit-list" class="habit-list"></ul>
-    <div id="empty-state" class="empty-state" hidden>
-      <p class="empty-state-title">No habits yet</p>
-      <p class="empty-state-body">Add your first habit to start building your streak.</p>
-      <button type="button" id="empty-add-btn" class="btn btn-primary">+ Add a habit</button>
-    </div>
-  </section>
+  <section class="tab-panel" data-tab-panel="supplements" hidden>
 
   <section class="panel" aria-label="Supplements">
     <div class="panel-header">
@@ -148,6 +190,10 @@
     </div>
   </section>
 
+  </section>
+
+  <section class="tab-panel" data-tab-panel="yearly" hidden>
+
   <section class="panel" aria-label="Yearly goals">
     <div class="panel-header">
       <h2>Yearly goals</h2>
@@ -161,16 +207,9 @@
     </div>
   </section>
 
-  <section class="panel" aria-label="Today's note">
-    <div class="panel-header">
-      <h2>Today's note</h2>
-    </div>
-    <textarea id="today-note-input" class="note-textarea" rows="3" placeholder="How did today go?"></textarea>
-    <div class="settings-row note-actions">
-      <button type="button" id="share-today-btn" class="btn btn-secondary">Share today's summary</button>
-      <span id="today-note-saved" class="field-hint note-saved" hidden>Saved</span>
-    </div>
   </section>
+
+  </div>
 
 </main>
 

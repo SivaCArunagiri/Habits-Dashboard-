@@ -2268,6 +2268,28 @@
   }
   function $(sel) { return document.querySelector(sel); }
 
+  /* ---------------- tabs ---------------- */
+  const TAB_STORAGE_KEY = 'keystone-active-tab';
+  function switchTab(name) {
+    document.querySelectorAll('.tab-panel').forEach(panel => {
+      panel.hidden = panel.dataset.tabPanel !== name;
+    });
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      if (btn.dataset.tab === name) btn.setAttribute('aria-current', 'page');
+      else btn.removeAttribute('aria-current');
+    });
+    try { localStorage.setItem(TAB_STORAGE_KEY, name); } catch (e) { /* ignore */ }
+  }
+  function initTabs() {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+    let saved = 'daily';
+    try { saved = localStorage.getItem(TAB_STORAGE_KEY) || 'daily'; } catch (e) { /* ignore */ }
+    if (!document.querySelector(`.tab-panel[data-tab-panel="${saved}"]`)) saved = 'daily';
+    switchTab(saved);
+  }
+
   /* ---------------- init ---------------- */
   function setTodayLabel() {
     $('#today-label').textContent = todayDate().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
@@ -2279,6 +2301,7 @@
   renderAll();
   initTodayNote();
   initInstallTip();
+  initTabs();
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
