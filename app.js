@@ -114,7 +114,13 @@
 
   function saveState() {
     state.updatedAt = Date.now();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+      console.error('Failed to save state', e);
+      showToast('⚠️ Not saved — device storage is full or unavailable');
+      return;
+    }
     if (window.KeystoneApp && typeof window.KeystoneApp.onLocalSave === 'function') {
       window.KeystoneApp.onLocalSave(state);
     }
@@ -591,11 +597,20 @@
     return wrap;
   }
 
+  const LIST_SEARCH_THRESHOLD = 6;
+  let habitSearchQuery = '';
+  let supplementSearchQuery = '';
+  let yearlySearchQuery = '';
+  function matchesQuery(name, query) { return !query || name.toLowerCase().includes(query.toLowerCase()); }
+
   function renderHabitList() {
     const list = $('#habit-list');
-    const habits = activeHabits();
+    const allHabits = activeHabits();
+    const habits = allHabits.filter(h => matchesQuery(h.name, habitSearchQuery));
     list.innerHTML = '';
-    $('#empty-state').hidden = habits.length > 0;
+    $('#habit-search').hidden = allHabits.length <= LIST_SEARCH_THRESHOLD;
+    $('#empty-state').hidden = allHabits.length > 0;
+    $('#habit-no-match').hidden = !(allHabits.length > 0 && habits.length === 0);
     list.hidden = habits.length === 0;
 
     habits.forEach(habit => {
@@ -666,7 +681,7 @@
         control.appendChild(btn);
       }
 
-      li.append(icon, main, control, buildReorderButtons(state.habits, habits, habits.indexOf(habit), renderHabitList));
+      li.append(icon, main, control, buildReorderButtons(state.habits, allHabits, allHabits.indexOf(habit), renderHabitList));
       list.appendChild(li);
     });
   }
@@ -674,9 +689,12 @@
   /* ---------------- rendering: yearly goals ---------------- */
   function renderYearlyList() {
     const list = $('#yearly-list');
-    const habits = activeYearlyHabits();
+    const allHabits = activeYearlyHabits();
+    const habits = allHabits.filter(h => matchesQuery(h.name, yearlySearchQuery));
     list.innerHTML = '';
-    $('#yearly-empty-state').hidden = habits.length > 0;
+    $('#yearly-search').hidden = allHabits.length <= LIST_SEARCH_THRESHOLD;
+    $('#yearly-empty-state').hidden = allHabits.length > 0;
+    $('#yearly-no-match').hidden = !(allHabits.length > 0 && habits.length === 0);
     list.hidden = habits.length === 0;
     const year = currentYear();
 
@@ -725,7 +743,7 @@
       stepper.append(minus, valSpan, plus);
       control.appendChild(stepper);
 
-      top.append(icon, main, control, buildReorderButtons(state.yearlyHabits, habits, habits.indexOf(habit), renderYearlyList));
+      top.append(icon, main, control, buildReorderButtons(state.yearlyHabits, allHabits, allHabits.indexOf(habit), renderYearlyList));
 
       const track = document.createElement('div');
       track.className = 'meter-track';
@@ -742,9 +760,12 @@
   /* ---------------- rendering: supplements ---------------- */
   function renderSupplementList() {
     const list = $('#supplement-list');
-    const supplements = activeSupplements();
+    const allSupplements = activeSupplements();
+    const supplements = allSupplements.filter(s => matchesQuery(s.name, supplementSearchQuery));
     list.innerHTML = '';
-    $('#supplement-empty-state').hidden = supplements.length > 0;
+    $('#supplement-search').hidden = allSupplements.length <= LIST_SEARCH_THRESHOLD;
+    $('#supplement-empty-state').hidden = allSupplements.length > 0;
+    $('#supplement-no-match').hidden = !(allSupplements.length > 0 && supplements.length === 0);
     list.hidden = supplements.length === 0;
     const ds = todayStr();
 
@@ -779,7 +800,7 @@
       meta.textContent = metaParts.join(' · ');
       main.append(name, meta);
 
-      top.append(icon, main, buildReorderButtons(state.supplements, supplements, supplements.indexOf(supp), renderSupplementList));
+      top.append(icon, main, buildReorderButtons(state.supplements, allSupplements, allSupplements.indexOf(supp), renderSupplementList));
 
       const slotRow = document.createElement('div');
       slotRow.className = 'slot-row';
@@ -2268,6 +2289,11 @@
   }
   function $(sel) { return document.querySelector(sel); }
 
+  /* ---------------- list search ---------------- */
+  $('#habit-search').addEventListener('input', e => { habitSearchQuery = e.target.value; renderHabitList(); });
+  $('#supplement-search').addEventListener('input', e => { supplementSearchQuery = e.target.value; renderSupplementList(); });
+  $('#yearly-search').addEventListener('input', e => { yearlySearchQuery = e.target.value; renderYearlyList(); });
+
   /* ---------------- tabs ---------------- */
   const TAB_STORAGE_KEY = 'keystone-active-tab';
   function switchTab(name) {
@@ -2327,7 +2353,12 @@
         settings: Object.assign({ theme: 'auto' }, newState.settings || {}),
         updatedAt: typeof newState.updatedAt === 'number' ? newState.updatedAt : 0
       });
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {
+        console.error('Failed to persist synced state', e);
+        showToast('⚠️ Synced data could not be saved to this device');
+      }
       applyTheme(state.settings.theme);
       syncReviewPeriodButtons();
       renderAll();

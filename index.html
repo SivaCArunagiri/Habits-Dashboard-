@@ -110,7 +110,12 @@
     <div class="panel-header">
       <h2>Daily habits</h2>
     </div>
+    <input type="search" id="habit-search" class="search-input" placeholder="Search habits…" hidden>
     <ul id="habit-list" class="habit-list"></ul>
+    <div id="habit-no-match" class="empty-state" hidden>
+      <p class="empty-state-title">No matches</p>
+      <p class="empty-state-body">Try a different search.</p>
+    </div>
     <div id="empty-state" class="empty-state" hidden>
       <p class="empty-state-title">No habits yet</p>
       <p class="empty-state-body">Add your first habit to start building your streak.</p>
@@ -138,7 +143,12 @@
       <h2>Supplements</h2>
       <button type="button" id="add-supplement-btn" class="btn btn-secondary">+ Supplement</button>
     </div>
+    <input type="search" id="supplement-search" class="search-input" placeholder="Search supplements…" hidden>
     <ul id="supplement-list" class="supplement-list"></ul>
+    <div id="supplement-no-match" class="empty-state" hidden>
+      <p class="empty-state-title">No matches</p>
+      <p class="empty-state-body">Try a different search.</p>
+    </div>
     <div id="supplement-empty-state" class="empty-state" hidden>
       <p class="empty-state-title">No supplements yet</p>
       <p class="empty-state-body">Add what you take and when — morning, evening, or a few times a day.</p>
@@ -155,7 +165,12 @@
       <h2>Yearly goals</h2>
       <button type="button" id="add-yearly-btn" class="btn btn-secondary">+ Goal</button>
     </div>
+    <input type="search" id="yearly-search" class="search-input" placeholder="Search yearly goals…" hidden>
     <ul id="yearly-list" class="yearly-list"></ul>
+    <div id="yearly-no-match" class="empty-state" hidden>
+      <p class="empty-state-title">No matches</p>
+      <p class="empty-state-body">Try a different search.</p>
+    </div>
     <div id="yearly-empty-state" class="empty-state" hidden>
       <p class="empty-state-title">No yearly goals yet</p>
       <p class="empty-state-body">Try something like "12 books" or "50 hikes" — log progress whenever it happens.</p>
