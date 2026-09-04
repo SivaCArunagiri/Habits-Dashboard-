@@ -583,6 +583,43 @@
   /* ---------------- rendering: habit list ---------------- */
   function habitColorVar(habit) { return `var(--series-${habit.color})`; }
 
+  /* ---------------- completion celebration ---------------- */
+  // The instant positive feeling right after marking something done is what
+  // actually wires a habit in (Fogg, "Tiny Habits") — so give a small, honest
+  // celebration on real-time completions, not on editing past dates.
+  const CELEBRATION_MILESTONES = [7, 30, 50, 100, 200, 365, 500, 1000];
+  let lastCompletedId = null;
+  let lastCompletedAt = 0;
+  function markJustCompleted(id) { lastCompletedId = id; lastCompletedAt = Date.now(); }
+  function wasJustCompleted(id) { return id === lastCompletedId && (Date.now() - lastCompletedAt) < 1000; }
+
+  function celebrateCompletion(anchorEl, color, streakAfter) {
+    const rect = anchorEl.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const burst = document.createElement('div');
+    burst.className = 'celebrate-burst';
+    burst.style.left = cx + 'px';
+    burst.style.top = cy + 'px';
+    const particleCount = 8;
+    for (let i = 0; i < particleCount; i++) {
+      const p = document.createElement('span');
+      p.className = 'celebrate-particle';
+      const angle = ((Math.PI * 2) / particleCount) * i + (Math.random() * 0.35 - 0.175);
+      const dist = 24 + Math.random() * 12;
+      p.style.setProperty('--dx', (Math.cos(angle) * dist).toFixed(1) + 'px');
+      p.style.setProperty('--dy', (Math.sin(angle) * dist).toFixed(1) + 'px');
+      p.style.background = color;
+      burst.appendChild(p);
+    }
+    document.body.appendChild(burst);
+    setTimeout(() => burst.remove(), 700);
+
+    if (typeof streakAfter === 'number' && CELEBRATION_MILESTONES.includes(streakAfter)) {
+      showToast(`🔥 ${streakAfter}-day streak!`);
+    }
+  }
+
   function swapActive(fullArray, activeArray, index, direction) {
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= activeArray.length) return;
@@ -683,16 +720,29 @@
         value.textContent = `${val}/${habit.target || 1}`;
         const plus = document.createElement('button');
         plus.type = 'button'; plus.className = 'stepper-btn'; plus.textContent = '+';
-        plus.addEventListener('click', () => { setValue(habit, ds, val + 1); saveState(); renderAll(); });
+        plus.addEventListener('click', () => {
+          const wasDone = isDone(habit, ds);
+          setValue(habit, ds, val + 1);
+          saveState();
+          if (!wasDone && isDone(habit, ds)) { markJustCompleted(habit.id); celebrateCompletion(plus, habitColorVar(habit), currentStreak(habit)); }
+          renderAll();
+        });
         stepper.append(minus, value, plus);
         control.appendChild(stepper);
       } else {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'check-toggle' + (isDone(habit, ds) ? ' done' : '');
+        const justDone = wasJustCompleted(habit.id);
+        btn.className = 'check-toggle' + (isDone(habit, ds) ? ' done' : '') + (justDone ? ' just-done' : '');
         btn.textContent = '✓';
         btn.setAttribute('aria-label', isDone(habit, ds) ? 'Mark not done today' : 'Mark done today');
-        btn.addEventListener('click', () => { setValue(habit, ds, !isDone(habit, ds)); saveState(); renderAll(); });
+        btn.addEventListener('click', () => {
+          const wasDone = isDone(habit, ds);
+          setValue(habit, ds, !wasDone);
+          saveState();
+          if (!wasDone) { markJustCompleted(habit.id); celebrateCompletion(btn, habitColorVar(habit), currentStreak(habit)); }
+          renderAll();
+        });
         control.appendChild(btn);
       }
 
@@ -827,7 +877,17 @@
         chip.type = 'button';
         chip.className = 'slot-chip' + (isSlotTaken(supp, ds, slotKey) ? ' taken' : '');
         chip.textContent = slotDef ? slotDef.label : slotKey;
-        chip.addEventListener('click', () => { toggleSupplementSlot(supp, ds, slotKey); saveState(); renderSupplementList(); renderReview(); });
+        chip.addEventListener('click', () => {
+          const wasTaken = isSlotTaken(supp, ds, slotKey);
+          const wasDoneForDay = supplementDoneForDay(supp, ds);
+          toggleSupplementSlot(supp, ds, slotKey);
+          saveState();
+          if (!wasTaken) {
+            const nowDoneForDay = supplementDoneForDay(supp, ds);
+            celebrateCompletion(chip, habitColorVar(supp), (!wasDoneForDay && nowDoneForDay) ? supplementStreak(supp) : null);
+          }
+          renderSupplementList(); renderReview();
+        });
         slotRow.appendChild(chip);
       });
 
@@ -2053,7 +2113,13 @@
         value.textContent = `${val}/${habit.target || 1}`;
         const plus = document.createElement('button');
         plus.type = 'button'; plus.className = 'stepper-btn'; plus.textContent = '+';
-        plus.addEventListener('click', () => { setValue(habit, ds, val + 1); saveState(); renderDaySheet(); renderAll(); });
+        plus.addEventListener('click', () => {
+          const wasDone = isDone(habit, ds);
+          setValue(habit, ds, val + 1);
+          saveState();
+          if (ds === todayStr() && !wasDone && isDone(habit, ds)) celebrateCompletion(plus, habitColorVar(habit), currentStreak(habit));
+          renderDaySheet(); renderAll();
+        });
         stepper.append(minus, value, plus);
         control.appendChild(stepper);
       } else {
@@ -2062,7 +2128,13 @@
         btn.className = 'check-toggle' + (isDone(habit, ds) ? ' done' : '');
         btn.textContent = '✓';
         btn.setAttribute('aria-label', isDone(habit, ds) ? 'Mark not done' : 'Mark done');
-        btn.addEventListener('click', () => { setValue(habit, ds, !isDone(habit, ds)); saveState(); renderDaySheet(); renderAll(); });
+        btn.addEventListener('click', () => {
+          const wasDone = isDone(habit, ds);
+          setValue(habit, ds, !wasDone);
+          saveState();
+          if (ds === todayStr() && !wasDone) celebrateCompletion(btn, habitColorVar(habit), currentStreak(habit));
+          renderDaySheet(); renderAll();
+        });
         control.appendChild(btn);
       }
 
