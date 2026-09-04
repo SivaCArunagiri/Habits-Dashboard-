@@ -109,6 +109,9 @@
   <section class="panel" aria-label="Daily habits">
     <div class="panel-header">
       <h2>Daily habits</h2>
+      <div class="panel-header-actions">
+        <button type="button" id="habit-reorder-toggle" class="btn btn-secondary">Reorder</button>
+      </div>
     </div>
     <input type="search" id="habit-search" class="search-input" placeholder="Search habits…" hidden>
     <ul id="habit-list" class="habit-list"></ul>
@@ -141,7 +144,10 @@
   <section class="panel" aria-label="Supplements">
     <div class="panel-header">
       <h2>Supplements</h2>
-      <button type="button" id="add-supplement-btn" class="btn btn-secondary">+ Supplement</button>
+      <div class="panel-header-actions">
+        <button type="button" id="supplement-reorder-toggle" class="btn btn-secondary">Reorder</button>
+        <button type="button" id="add-supplement-btn" class="btn btn-secondary">+ Supplement</button>
+      </div>
     </div>
     <input type="search" id="supplement-search" class="search-input" placeholder="Search supplements…" hidden>
     <ul id="supplement-list" class="supplement-list"></ul>
@@ -163,7 +169,10 @@
   <section class="panel" aria-label="Yearly goals">
     <div class="panel-header">
       <h2>Yearly goals</h2>
-      <button type="button" id="add-yearly-btn" class="btn btn-secondary">+ Goal</button>
+      <div class="panel-header-actions">
+        <button type="button" id="yearly-reorder-toggle" class="btn btn-secondary">Reorder</button>
+        <button type="button" id="add-yearly-btn" class="btn btn-secondary">+ Goal</button>
+      </div>
     </div>
     <input type="search" id="yearly-search" class="search-input" placeholder="Search yearly goals…" hidden>
     <ul id="yearly-list" class="yearly-list"></ul>

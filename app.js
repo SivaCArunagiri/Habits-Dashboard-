@@ -603,8 +603,25 @@
   let yearlySearchQuery = '';
   function matchesQuery(name, query) { return !query || name.toLowerCase().includes(query.toLowerCase()); }
 
+  let habitReorderMode = false;
+  let supplementReorderMode = false;
+  let yearlyReorderMode = false;
+  function toggleReorderMode(key, btn, rerender) {
+    const modes = { habit: () => habitReorderMode, supplement: () => supplementReorderMode, yearly: () => yearlyReorderMode };
+    if (key === 'habit') habitReorderMode = !habitReorderMode;
+    else if (key === 'supplement') supplementReorderMode = !supplementReorderMode;
+    else if (key === 'yearly') yearlyReorderMode = !yearlyReorderMode;
+    btn.textContent = modes[key]() ? 'Done' : 'Reorder';
+    btn.classList.toggle('btn-active', modes[key]());
+    rerender();
+  }
+  $('#habit-reorder-toggle').addEventListener('click', () => toggleReorderMode('habit', $('#habit-reorder-toggle'), renderHabitList));
+  $('#supplement-reorder-toggle').addEventListener('click', () => toggleReorderMode('supplement', $('#supplement-reorder-toggle'), renderSupplementList));
+  $('#yearly-reorder-toggle').addEventListener('click', () => toggleReorderMode('yearly', $('#yearly-reorder-toggle'), renderYearlyList));
+
   function renderHabitList() {
     const list = $('#habit-list');
+    list.classList.toggle('reordering', habitReorderMode);
     const allHabits = activeHabits();
     const habits = allHabits.filter(h => matchesQuery(h.name, habitSearchQuery));
     list.innerHTML = '';
@@ -637,21 +654,7 @@
       const scheduleLabel = habit.days.length === 7 ? 'Every day' : habit.days.map(d => DAY_LABELS[d]).join(' ');
       meta.innerHTML = `<span class="habit-streak">${streak > 0 ? '🔥 ' + streak + 'd' : 'No streak yet'}</span> · ${scheduleLabel}`;
 
-      const strip = document.createElement('div');
-      strip.className = 'habit-strip';
-      const today = todayDate();
-      for (let i = 6; i >= 0; i--) {
-        const d = addDays(today, -i);
-        const ds = fmt(d);
-        const cell = document.createElement('div');
-        cell.className = 'strip-cell';
-        const ratio = progressRatio(habit, ds);
-        if (ratio >= 1) cell.style.background = habitColorVar(habit);
-        else if (ratio > 0) cell.style.background = `color-mix(in srgb, ${habitColorVar(habit)} ${Math.round(ratio * 70) + 15}%, var(--surface-2))`;
-        strip.appendChild(cell);
-      }
-
-      main.append(name, meta, strip);
+      main.append(name, meta);
 
       const control = document.createElement('div');
       control.className = 'habit-control';
@@ -689,6 +692,7 @@
   /* ---------------- rendering: yearly goals ---------------- */
   function renderYearlyList() {
     const list = $('#yearly-list');
+    list.classList.toggle('reordering', yearlyReorderMode);
     const allHabits = activeYearlyHabits();
     const habits = allHabits.filter(h => matchesQuery(h.name, yearlySearchQuery));
     list.innerHTML = '';
@@ -760,6 +764,7 @@
   /* ---------------- rendering: supplements ---------------- */
   function renderSupplementList() {
     const list = $('#supplement-list');
+    list.classList.toggle('reordering', supplementReorderMode);
     const allSupplements = activeSupplements();
     const supplements = allSupplements.filter(s => matchesQuery(s.name, supplementSearchQuery));
     list.innerHTML = '';
