@@ -251,6 +251,12 @@
         <input type="text" id="habit-name" maxlength="40" placeholder="Drink water" required>
       </label>
 
+      <label class="field">
+        <span class="field-label">Cue (optional)</span>
+        <input type="text" id="habit-cue" maxlength="60" placeholder="e.g., I pour my morning coffee">
+        <span class="field-hint">"After ___, I will do this habit" — pairing it with something you already do makes it easier to remember.</span>
+      </label>
+
       <div class="field">
         <span class="field-label">Icon</span>
         <div class="emoji-row" id="emoji-row"></div>
@@ -310,6 +316,7 @@
       <button type="button" class="icon-btn sheet-close" data-close="detail-sheet" aria-label="Close">✕</button>
     </div>
     <div class="sheet-body">
+      <p class="field-hint cue-hint" id="detail-cue" hidden></p>
       <div class="detail-stats" id="detail-stats"></div>
 
       <div class="trend-panel">

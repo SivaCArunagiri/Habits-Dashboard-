@@ -167,7 +167,11 @@
     }
     return min;
   }
+  const STREAK_GRACE_WINDOW_DAYS = 7;
   function currentStreak(habit, asOfStr) {
+    // A single missed day doesn't zero out weeks of consistency: one scheduled
+    // miss is forgiven per rolling week, as long as another miss wasn't already
+    // forgiven within that window. Two misses close together still ends the streak.
     const floor = floorDate(habit);
     let cursor = asOfStr ? parseLocal(asOfStr) : todayDate();
     let cStr = fmt(cursor);
@@ -176,12 +180,20 @@
     }
     let count = 0;
     let guard = 0;
+    const graceDates = [];
     while (fmt(cursor) >= floor && guard < 20000) {
       guard++;
       const ds = fmt(cursor);
       if (isScheduled(habit, ds)) {
-        if (isDone(habit, ds)) { count++; cursor = addDays(cursor, -1); }
-        else break;
+        if (isDone(habit, ds)) {
+          count++;
+          cursor = addDays(cursor, -1);
+        } else {
+          const graceAvailable = !graceDates.some(gd => Math.round((gd - cursor) / 86400000) <= STREAK_GRACE_WINDOW_DAYS);
+          if (!graceAvailable) break;
+          graceDates.push(cursor);
+          cursor = addDays(cursor, -1);
+        }
       } else {
         cursor = addDays(cursor, -1);
       }
@@ -1103,6 +1115,7 @@
     formColor = COLOR_SLOTS[state.habits.length % COLOR_SLOTS.length];
     formDays = [0,1,2,3,4,5,6];
     $('#habit-name').value = '';
+    $('#habit-cue').value = '';
     $('#habit-target').value = '';
     $('#habit-unit').value = '';
     $('#habit-id').value = '';
@@ -1122,6 +1135,7 @@
     formColor = habit.color;
     formDays = [...habit.days];
     $('#habit-name').value = habit.name;
+    $('#habit-cue').value = habit.cue || '';
     $('#habit-target').value = habit.target || '';
     $('#habit-unit').value = habit.unit || '';
     $('#habit-id').value = habit.id;
@@ -1139,16 +1153,17 @@
     const name = $('#habit-name').value.trim();
     if (!name) return;
     if (formDays.length === 0) { showToast('Pick at least one day'); return; }
+    const cue = $('#habit-cue').value.trim();
     const target = Math.max(1, parseInt($('#habit-target').value, 10) || 1);
     const unit = $('#habit-unit').value.trim() || (formType === 'count' ? 'times' : '');
 
     if (editingHabitId) {
       const h = state.habits.find(h => h.id === editingHabitId);
-      Object.assign(h, { name, emoji: formEmoji, color: formColor, days: [...formDays], type: formType, target, unit, archived: !$('#habit-active').checked });
+      Object.assign(h, { name, cue, emoji: formEmoji, color: formColor, days: [...formDays], type: formType, target, unit, archived: !$('#habit-active').checked });
     } else {
       state.habits.push({
         id: 'h_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-        name, emoji: formEmoji, color: formColor, days: [...formDays],
+        name, cue, emoji: formEmoji, color: formColor, days: [...formDays],
         type: formType, target, unit,
         createdAt: todayStr(), archived: false
       });
@@ -1760,6 +1775,10 @@
   function renderDetail() {
     const habit = state.habits.find(h => h.id === detailHabitId);
     if (!habit) return;
+
+    const cueEl = $('#detail-cue');
+    cueEl.hidden = !habit.cue;
+    if (habit.cue) cueEl.textContent = `💡 After ${habit.cue}, I will ${habit.name.toLowerCase()}.`;
 
     const stats = $('#detail-stats');
     stats.innerHTML = '';
