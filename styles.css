@@ -490,6 +490,16 @@ input { font: inherit; }
   display: flex; align-items: center; justify-content: center;
 }
 .stepper-value { min-width: 34px; text-align: center; font-weight: 700; font-size: 14px; font-family: 'SF Mono', 'Menlo', 'Consolas', monospace; font-variant-numeric: tabular-nums; }
+.tiny-btn {
+  width: 30px; height: 30px;
+  margin-left: 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-1);
+  font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
 
 /* ---------- notes ---------- */
 .note-textarea {

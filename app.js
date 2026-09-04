@@ -80,7 +80,7 @@
 
   function defaultState() {
     return {
-      version: 1, habits: [], logs: {}, notes: {}, habitNotes: {},
+      version: 1, habits: [], logs: {}, notes: {}, habitNotes: {}, tinyLogs: {},
       yearlyHabits: [], yearlyLogs: {}, yearlyHistory: {},
       supplements: [], supplementLogs: {},
       settings: { theme: 'auto' }, updatedAt: 0
@@ -98,6 +98,7 @@
         logs: parsed.logs && typeof parsed.logs === 'object' ? parsed.logs : {},
         notes: parsed.notes && typeof parsed.notes === 'object' ? parsed.notes : {},
         habitNotes: parsed.habitNotes && typeof parsed.habitNotes === 'object' ? parsed.habitNotes : {},
+        tinyLogs: parsed.tinyLogs && typeof parsed.tinyLogs === 'object' ? parsed.tinyLogs : {},
         yearlyHabits: Array.isArray(parsed.yearlyHabits) ? parsed.yearlyHabits : [],
         yearlyLogs: parsed.yearlyLogs && typeof parsed.yearlyLogs === 'object' ? parsed.yearlyLogs : {},
         yearlyHistory: parsed.yearlyHistory && typeof parsed.yearlyHistory === 'object' ? parsed.yearlyHistory : {},
@@ -135,13 +136,32 @@
     const h = state.logs[habit.id];
     return h ? h[dStr] : undefined;
   }
+  function isTinyDone(habit, dStr) {
+    const bucket = state.tinyLogs[habit.id];
+    return !!(bucket && bucket[dStr]);
+  }
+  function setTinyDone(habit, dStr, val) {
+    if (!state.tinyLogs[habit.id]) state.tinyLogs[habit.id] = {};
+    if (val) state.tinyLogs[habit.id][dStr] = true;
+    else delete state.tinyLogs[habit.id][dStr];
+    if (Object.keys(state.tinyLogs[habit.id]).length === 0) delete state.tinyLogs[habit.id];
+  }
+  function logTinyVersion(habit, dStr) {
+    const current = Number(getRaw(habit, dStr)) || 0;
+    if (current < (habit.tinyTarget || 0)) setValue(habit, dStr, habit.tinyTarget);
+    setTinyDone(habit, dStr, true);
+  }
   function isDone(habit, dStr) {
     const v = getRaw(habit, dStr);
-    if (habit.type === 'count') return (Number(v) || 0) >= (habit.target || 1);
+    if (habit.type === 'count') {
+      if ((Number(v) || 0) >= (habit.target || 1)) return true;
+      return isTinyDone(habit, dStr);
+    }
     return v === true;
   }
   function progressRatio(habit, dStr) {
     if (habit.type !== 'count') return isDone(habit, dStr) ? 1 : 0;
+    if (isTinyDone(habit, dStr)) return 1;
     const v = Number(getRaw(habit, dStr)) || 0;
     const t = habit.target || 1;
     return Math.max(0, Math.min(1, v / t));
@@ -729,6 +749,21 @@
         });
         stepper.append(minus, value, plus);
         control.appendChild(stepper);
+        if (habit.tinyTarget && !isDone(habit, ds)) {
+          const tinyBtn = document.createElement('button');
+          tinyBtn.type = 'button';
+          tinyBtn.className = 'tiny-btn';
+          tinyBtn.textContent = '🌱';
+          tinyBtn.setAttribute('aria-label', `Log tiny version (${habit.tinyTarget}${habit.unit ? ' ' + habit.unit : ''})`);
+          tinyBtn.addEventListener('click', () => {
+            const wasDone = isDone(habit, ds);
+            logTinyVersion(habit, ds);
+            saveState();
+            if (!wasDone) { markJustCompleted(habit.id); celebrateCompletion(tinyBtn, habitColorVar(habit), currentStreak(habit)); }
+            renderAll();
+          });
+          control.appendChild(tinyBtn);
+        }
       } else {
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -1164,6 +1199,8 @@
       b.classList.toggle('selected', b.dataset.typeChoice === type);
     });
     $('#target-row').hidden = type !== 'count';
+    $('#tiny-target-row').hidden = type !== 'count';
+    $('#tiny-note-row').hidden = type !== 'check';
   }
   $('#type-segmented').querySelectorAll('.segmented-btn').forEach(btn => {
     btn.addEventListener('click', () => setFormType(btn.dataset.typeChoice));
@@ -1178,6 +1215,8 @@
     $('#habit-cue').value = '';
     $('#habit-target').value = '';
     $('#habit-unit').value = '';
+    $('#habit-tiny-target').value = '';
+    $('#habit-tiny-note').value = '';
     $('#habit-id').value = '';
     $('#delete-habit-btn').hidden = true;
     $('#habit-active-row').hidden = true;
@@ -1198,6 +1237,8 @@
     $('#habit-cue').value = habit.cue || '';
     $('#habit-target').value = habit.target || '';
     $('#habit-unit').value = habit.unit || '';
+    $('#habit-tiny-target').value = habit.tinyTarget || '';
+    $('#habit-tiny-note').value = habit.tinyNote || '';
     $('#habit-id').value = habit.id;
     $('#delete-habit-btn').hidden = false;
     $('#habit-active-row').hidden = false;
@@ -1216,15 +1257,18 @@
     const cue = $('#habit-cue').value.trim();
     const target = Math.max(1, parseInt($('#habit-target').value, 10) || 1);
     const unit = $('#habit-unit').value.trim() || (formType === 'count' ? 'times' : '');
+    const tinyTargetRaw = parseInt($('#habit-tiny-target').value, 10);
+    const tinyTarget = formType === 'count' && tinyTargetRaw > 0 ? Math.min(tinyTargetRaw, target) : null;
+    const tinyNote = formType === 'check' ? $('#habit-tiny-note').value.trim() : '';
 
     if (editingHabitId) {
       const h = state.habits.find(h => h.id === editingHabitId);
-      Object.assign(h, { name, cue, emoji: formEmoji, color: formColor, days: [...formDays], type: formType, target, unit, archived: !$('#habit-active').checked });
+      Object.assign(h, { name, cue, emoji: formEmoji, color: formColor, days: [...formDays], type: formType, target, unit, tinyTarget, tinyNote, archived: !$('#habit-active').checked });
     } else {
       state.habits.push({
         id: 'h_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
         name, cue, emoji: formEmoji, color: formColor, days: [...formDays],
-        type: formType, target, unit,
+        type: formType, target, unit, tinyTarget, tinyNote,
         createdAt: todayStr(), archived: false
       });
     }
@@ -1840,14 +1884,28 @@
     cueEl.hidden = !habit.cue;
     if (habit.cue) cueEl.textContent = `💡 After ${habit.cue}, I will ${habit.name.toLowerCase()}.`;
 
+    const tinyEl = $('#detail-tiny');
+    const hasTiny = habit.type === 'count' ? !!habit.tinyTarget : !!habit.tinyNote;
+    tinyEl.hidden = !hasTiny;
+    if (hasTiny) {
+      tinyEl.textContent = habit.type === 'count'
+        ? `🌱 Tiny version: ${habit.tinyTarget}${habit.unit ? ' ' + habit.unit : ''} still counts on hard days.`
+        : `🌱 Tiny version: ${habit.tinyNote}`;
+    }
+
     const stats = $('#detail-stats');
     stats.innerHTML = '';
     const cur = currentStreak(habit);
     const best = longestStreak(habit);
     let totalDone = 0;
     const bucket = state.logs[habit.id] || {};
-    if (habit.type === 'count') totalDone = Object.values(bucket).filter(v => Number(v) >= (habit.target||1)).length;
-    else totalDone = Object.keys(bucket).length;
+    if (habit.type === 'count') {
+      const tinyBucket = state.tinyLogs[habit.id] || {};
+      const allDates = new Set([...Object.keys(bucket), ...Object.keys(tinyBucket)]);
+      totalDone = Array.from(allDates).filter(ds => isDone(habit, ds)).length;
+    } else {
+      totalDone = Object.keys(bucket).length;
+    }
 
     [['Current streak', cur ? cur + 'd' : '—'], ['Best streak', best ? best + 'd' : '—'], ['Total logged', String(totalDone)]]
       .forEach(([label, value]) => {
@@ -2441,6 +2499,7 @@
         logs: newState.logs && typeof newState.logs === 'object' ? newState.logs : {},
         notes: newState.notes && typeof newState.notes === 'object' ? newState.notes : {},
         habitNotes: newState.habitNotes && typeof newState.habitNotes === 'object' ? newState.habitNotes : {},
+        tinyLogs: newState.tinyLogs && typeof newState.tinyLogs === 'object' ? newState.tinyLogs : {},
         yearlyHabits: Array.isArray(newState.yearlyHabits) ? newState.yearlyHabits : [],
         yearlyLogs: newState.yearlyLogs && typeof newState.yearlyLogs === 'object' ? newState.yearlyLogs : {},
         yearlyHistory: newState.yearlyHistory && typeof newState.yearlyHistory === 'object' ? newState.yearlyHistory : {},

@@ -286,6 +286,18 @@
         </label>
       </div>
 
+      <label class="field" id="tiny-target-row" hidden>
+        <span class="field-label">Tiny version target (optional)</span>
+        <input type="number" id="habit-tiny-target" min="1" step="1" inputmode="numeric" placeholder="e.g., 1">
+        <span class="field-hint">On hard days, logging just this much still counts — shrinking the ask keeps the streak alive instead of skipping entirely.</span>
+      </label>
+
+      <label class="field" id="tiny-note-row" hidden>
+        <span class="field-label">Tiny version (optional)</span>
+        <input type="text" id="habit-tiny-note" maxlength="60" placeholder="e.g., just 1 minute counts">
+        <span class="field-hint">A reminder that a smaller version still counts, for days when the full habit feels like too much.</span>
+      </label>
+
       <div class="field">
         <span class="field-label">Repeat</span>
         <div class="day-row" id="day-row"></div>
@@ -317,6 +329,7 @@
     </div>
     <div class="sheet-body">
       <p class="field-hint cue-hint" id="detail-cue" hidden></p>
+      <p class="field-hint cue-hint" id="detail-tiny" hidden></p>
       <div class="detail-stats" id="detail-stats"></div>
 
       <div class="trend-panel">
