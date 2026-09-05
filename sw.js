@@ -1,4 +1,4 @@
-const CACHE = 'habits-dashboard-v1';
+const CACHE = 'keystone-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -25,21 +25,24 @@ self.addEventListener('activate', event => {
   );
 });
 
+// Network-first for same-origin GETs: always serve the latest deploy when
+// online, and only fall back to the cached copy when the network fetch
+// itself fails (offline). A prior stale-first strategy here could serve an
+// old index.html alongside a newer app.js (or vice versa) whenever a fetch
+// landed between two deploys — the intermittent "works, then doesn't" the
+// iOS home-screen shortcut was showing.
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   if (new URL(event.request.url).origin !== location.origin) return;
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      const network = fetch(event.request)
-        .then(response => {
-          if (response && response.status === 200 && response.type === 'basic') {
-            const clone = response.clone();
-            caches.open(CACHE).then(cache => cache.put(event.request, clone));
-          }
-          return response;
-        })
-        .catch(() => cached);
-      return cached || network;
-    })
+    fetch(event.request)
+      .then(response => {
+        if (response && response.status === 200 && response.type === 'basic') {
+          const clone = response.clone();
+          caches.open(CACHE).then(cache => cache.put(event.request, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
