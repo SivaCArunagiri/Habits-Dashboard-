@@ -211,15 +211,16 @@ input { font: inherit; }
 .dashboard {
   max-width: 900px;
   margin: 0 auto;
-  padding: 18px 20px calc(90px + var(--safe-bottom));
+  padding: 18px 20px 0;
 }
-.tab-panels { display: block; }
+.tab-panels { display: block; padding-bottom: 20px; }
 .tab-panel { display: flex; flex-direction: column; gap: 20px; }
 
 /* ---------- tab navigation ---------- */
 .tab-nav {
-  position: fixed;
+  position: sticky;
   left: 0; right: 0; bottom: 0;
+  margin: 0 -20px;
   z-index: 50;
   display: flex;
   gap: 4px;
@@ -814,6 +815,9 @@ input:focus { outline: 2px solid var(--series-1); outline-offset: 1px; }
     position: sticky;
     top: calc(84px + var(--safe-top));
     left: auto; right: auto; bottom: auto;
+    margin: 0;
+    grid-column: 1;
+    grid-row: 1;
     flex-direction: column;
     gap: 4px;
     background: transparent;
@@ -822,6 +826,7 @@ input:focus { outline: 2px solid var(--series-1); outline-offset: 1px; }
     border-top: none;
     padding: 0;
   }
+  .tab-panels { grid-column: 2; grid-row: 1; padding-bottom: 0; }
   .tab-btn {
     flex-direction: row;
     justify-content: flex-start;
@@ -834,7 +839,9 @@ input:focus { outline: 2px solid var(--series-1); outline-offset: 1px; }
 }
 
 @media (max-width: 380px) {
-  .dashboard { padding: 14px 14px calc(86px + var(--safe-bottom)); }
+  .dashboard { padding: 14px 14px 0; }
+  .tab-panels { padding-bottom: 14px; }
+  .tab-nav { margin: 0 -14px; }
   .tab-panel { gap: 16px; }
   .app-header { padding-left: 14px; padding-right: 14px; }
 }
