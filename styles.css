@@ -166,6 +166,30 @@ input { font: inherit; }
 }
 .icon-btn:active { background: var(--gridline); }
 
+#refresh-btn.spinning { animation: spin 0.6s linear; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- pull to refresh ---------- */
+#pull-refresh-indicator {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  margin-top: calc(-60px - var(--safe-top));
+  height: calc(60px + var(--safe-top));
+  padding-top: var(--safe-top);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  z-index: 20;
+  color: var(--text-secondary);
+  font-size: 13px;
+  transition: transform 0.25s ease;
+}
+#pull-refresh-indicator.dragging { transition: none; }
+#pull-refresh-indicator .pull-refresh-icon { display: inline-block; font-size: 16px; transition: transform 0.2s ease; }
+#pull-refresh-indicator.ready .pull-refresh-icon { transform: rotate(180deg); }
+#pull-refresh-indicator.loading .pull-refresh-icon { animation: spin 0.6s linear infinite; }
+
 .btn {
   border: 1px solid var(--border-strong);
   background: var(--surface-2);

@@ -1162,6 +1162,60 @@
     backdrop.addEventListener('click', e => { if (e.target === backdrop) backdrop.hidden = true, document.body.style.overflow = ''; });
   });
 
+  function anySheetOpen() {
+    return Array.from(document.querySelectorAll('.sheet-backdrop')).some(b => !b.hidden);
+  }
+
+  /* ---------------- refresh (button + pull-to-refresh) ---------------- */
+  $('#refresh-btn').addEventListener('click', () => {
+    const btn = $('#refresh-btn');
+    btn.classList.add('spinning');
+    setTimeout(() => location.reload(), 350);
+  });
+
+  (function setupPullToRefresh() {
+    const indicator = $('#pull-refresh-indicator');
+    const THRESHOLD = 70;
+    let startY = null;
+    let tracking = false;
+    let ready = false;
+
+    document.addEventListener('touchstart', e => {
+      if (window.scrollY > 0 || anySheetOpen() || e.touches.length !== 1) { tracking = false; return; }
+      startY = e.touches[0].clientY;
+      tracking = true;
+      ready = false;
+      indicator.classList.add('dragging');
+    }, { passive: true });
+
+    document.addEventListener('touchmove', e => {
+      if (!tracking || startY === null) return;
+      const delta = e.touches[0].clientY - startY;
+      if (delta <= 0) { indicator.style.transform = ''; ready = false; indicator.classList.remove('ready'); return; }
+      const dist = Math.min(delta * 0.5, 90);
+      indicator.style.transform = `translateY(${dist}px)`;
+      ready = dist >= THRESHOLD;
+      indicator.classList.toggle('ready', ready);
+      indicator.querySelector('.pull-refresh-label').textContent = ready ? 'Release to refresh' : 'Pull to refresh';
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => {
+      if (!tracking) return;
+      tracking = false;
+      indicator.classList.remove('dragging');
+      if (ready) {
+        indicator.classList.add('loading');
+        indicator.style.transform = `translateY(${THRESHOLD}px)`;
+        indicator.querySelector('.pull-refresh-label').textContent = 'Refreshing…';
+        setTimeout(() => location.reload(), 350);
+      } else {
+        indicator.style.transform = '';
+        indicator.classList.remove('ready');
+      }
+      startY = null;
+    });
+  })();
+
   /* ---------------- habit form (add / edit) ---------------- */
   let editingHabitId = null;
   let formEmoji = EMOJI_PRESETS[0];

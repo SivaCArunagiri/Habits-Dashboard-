@@ -43,10 +43,16 @@
     </div>
   </div>
   <div class="app-header-actions">
+    <button type="button" id="refresh-btn" class="icon-btn" aria-label="Refresh">↻</button>
     <button type="button" id="settings-btn" class="icon-btn" aria-label="Settings">⚙</button>
     <button type="button" id="add-habit-btn" class="btn btn-primary">+ Habit</button>
   </div>
 </header>
+
+<div id="pull-refresh-indicator" aria-hidden="true">
+  <span class="pull-refresh-icon">↻</span>
+  <span class="pull-refresh-label">Pull to refresh</span>
+</div>
 
 <main class="dashboard">
 
