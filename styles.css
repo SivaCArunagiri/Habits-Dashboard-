@@ -105,7 +105,6 @@ body {
   font-family: 'Poppins', system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
-  padding-bottom: calc(24px + var(--safe-bottom));
 }
 h1, h2, h3, p { margin: 0; }
 button { font: inherit; color: inherit; }
