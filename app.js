@@ -83,6 +83,7 @@
       version: 1, habits: [], logs: {}, notes: {}, habitNotes: {}, tinyLogs: {},
       yearlyHabits: [], yearlyLogs: {}, yearlyHistory: {},
       supplements: [], supplementLogs: {},
+      dayCounters: [],
       settings: { theme: 'auto' }, updatedAt: 0
     };
   }
@@ -104,6 +105,7 @@
         yearlyHistory: parsed.yearlyHistory && typeof parsed.yearlyHistory === 'object' ? parsed.yearlyHistory : {},
         supplements: Array.isArray(parsed.supplements) ? parsed.supplements : [],
         supplementLogs: parsed.supplementLogs && typeof parsed.supplementLogs === 'object' ? parsed.supplementLogs : {},
+        dayCounters: Array.isArray(parsed.dayCounters) ? parsed.dayCounters : [],
         settings: Object.assign({ theme: 'auto' }, parsed.settings || {}),
         updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : 0
       });
@@ -600,6 +602,16 @@
     });
   }
 
+  /* ---------------- day counters ---------------- */
+  function activeDayCounters() { return state.dayCounters.filter(c => !c.archived); }
+  function dayCounterInfo(counter) {
+    const target = parseLocal(counter.date);
+    const diffDays = Math.round((todayDate() - target) / 86400000);
+    if (diffDays > 0) return { count: diffDays, suffix: diffDays === 1 ? 'day since' : 'days since', dateLabel: `Since ${humanDate(counter.date)}` };
+    if (diffDays < 0) return { count: -diffDays, suffix: -diffDays === 1 ? 'day until' : 'days until', dateLabel: `Until ${humanDate(counter.date)}` };
+    return { count: 0, suffix: 'today', dateLabel: humanDate(counter.date) };
+  }
+
   /* ---------------- rendering: habit list ---------------- */
   function habitColorVar(habit) { return `var(--series-${habit.color})`; }
 
@@ -670,16 +682,19 @@
   let habitSearchQuery = '';
   let supplementSearchQuery = '';
   let yearlySearchQuery = '';
+  let counterSearchQuery = '';
   function matchesQuery(name, query) { return !query || name.toLowerCase().includes(query.toLowerCase()); }
 
   let habitReorderMode = false;
   let supplementReorderMode = false;
   let yearlyReorderMode = false;
+  let counterReorderMode = false;
   function toggleReorderMode(key, btn, rerender) {
-    const modes = { habit: () => habitReorderMode, supplement: () => supplementReorderMode, yearly: () => yearlyReorderMode };
+    const modes = { habit: () => habitReorderMode, supplement: () => supplementReorderMode, yearly: () => yearlyReorderMode, counter: () => counterReorderMode };
     if (key === 'habit') habitReorderMode = !habitReorderMode;
     else if (key === 'supplement') supplementReorderMode = !supplementReorderMode;
     else if (key === 'yearly') yearlyReorderMode = !yearlyReorderMode;
+    else if (key === 'counter') counterReorderMode = !counterReorderMode;
     btn.textContent = modes[key]() ? 'Done' : 'Reorder';
     btn.classList.toggle('btn-active', modes[key]());
     rerender();
@@ -687,6 +702,7 @@
   $('#habit-reorder-toggle').addEventListener('click', () => toggleReorderMode('habit', $('#habit-reorder-toggle'), renderHabitList));
   $('#supplement-reorder-toggle').addEventListener('click', () => toggleReorderMode('supplement', $('#supplement-reorder-toggle'), renderSupplementList));
   $('#yearly-reorder-toggle').addEventListener('click', () => toggleReorderMode('yearly', $('#yearly-reorder-toggle'), renderYearlyList));
+  $('#counter-reorder-toggle').addEventListener('click', () => toggleReorderMode('counter', $('#counter-reorder-toggle'), renderDayCounterList));
 
   function renderHabitList() {
     const list = $('#habit-list');
@@ -1130,6 +1146,7 @@
     renderReview();
     renderOverviewHeatmap();
     renderHabitList();
+    renderDayCounterList();
     renderYearlyList();
     renderSupplementList();
   }
@@ -1415,6 +1432,152 @@
 
   $('#add-yearly-btn').addEventListener('click', openAddYearly);
   $('#yearly-empty-add-btn').addEventListener('click', openAddYearly);
+
+  /* ---------------- day counter form (add / edit) ---------------- */
+  let editingCounterId = null;
+  let counterFormEmoji = '📅';
+  let counterFormColor = 1;
+
+  function buildCounterEmojiRow() {
+    const row = $('#counter-emoji-row');
+    row.innerHTML = '';
+    EMOJI_PRESETS.forEach(e => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'emoji-choice' + (e === counterFormEmoji ? ' selected' : '');
+      btn.textContent = e;
+      btn.addEventListener('click', () => { counterFormEmoji = e; buildCounterEmojiRow(); });
+      row.appendChild(btn);
+    });
+  }
+  function buildCounterColorRow() {
+    const row = $('#counter-color-row');
+    row.innerHTML = '';
+    COLOR_SLOTS.forEach(c => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'color-choice' + (c === counterFormColor ? ' selected' : '');
+      btn.style.setProperty('--swatch-color', `var(--series-${c})`);
+      btn.setAttribute('aria-label', `Color ${c}`);
+      btn.addEventListener('click', () => { counterFormColor = c; buildCounterColorRow(); });
+      row.appendChild(btn);
+    });
+  }
+
+  function resetCounterForm() {
+    editingCounterId = null;
+    counterFormEmoji = '📅';
+    counterFormColor = COLOR_SLOTS[state.dayCounters.length % COLOR_SLOTS.length];
+    $('#counter-name').value = '';
+    $('#counter-date').value = todayStr();
+    $('#counter-id').value = '';
+    $('#delete-counter-btn').hidden = true;
+    $('#counter-active-row').hidden = true;
+    $('#counter-active').checked = true;
+    $('#counter-form-sheet-title').textContent = 'Add counter';
+    buildCounterEmojiRow(); buildCounterColorRow();
+  }
+
+  function openAddCounter() { resetCounterForm(); openSheet('counter-form-sheet'); $('#counter-name').focus(); }
+
+  function openEditCounter(counter) {
+    editingCounterId = counter.id;
+    counterFormEmoji = counter.emoji;
+    counterFormColor = counter.color;
+    $('#counter-name').value = counter.name;
+    $('#counter-date').value = counter.date;
+    $('#counter-id').value = counter.id;
+    $('#delete-counter-btn').hidden = false;
+    $('#counter-active-row').hidden = false;
+    $('#counter-active').checked = !counter.archived;
+    $('#counter-form-sheet-title').textContent = 'Edit counter';
+    buildCounterEmojiRow(); buildCounterColorRow();
+    openSheet('counter-form-sheet');
+  }
+
+  $('#counter-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const name = $('#counter-name').value.trim();
+    if (!name) return;
+    const date = $('#counter-date').value;
+    if (!date) return;
+
+    if (editingCounterId) {
+      const c = state.dayCounters.find(c => c.id === editingCounterId);
+      Object.assign(c, { name, emoji: counterFormEmoji, color: counterFormColor, date, archived: !$('#counter-active').checked });
+    } else {
+      state.dayCounters.push({
+        id: 'dc_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        name, emoji: counterFormEmoji, color: counterFormColor, date,
+        createdAt: todayStr(), archived: false
+      });
+    }
+    saveState();
+    closeSheet('counter-form-sheet');
+    renderDayCounterList();
+  });
+
+  $('#delete-counter-btn').addEventListener('click', () => {
+    if (!editingCounterId) return;
+    if (!confirm('Delete this counter?')) return;
+    state.dayCounters = state.dayCounters.filter(c => c.id !== editingCounterId);
+    saveState();
+    closeSheet('counter-form-sheet');
+    renderDayCounterList();
+  });
+
+  $('#add-counter-btn').addEventListener('click', openAddCounter);
+  $('#counter-empty-add-btn').addEventListener('click', openAddCounter);
+
+  /* ---------------- rendering: day counters ---------------- */
+  function renderDayCounterList() {
+    const list = $('#counter-list');
+    list.classList.toggle('reordering', counterReorderMode);
+    const allCounters = activeDayCounters();
+    const counters = allCounters.filter(c => matchesQuery(c.name, counterSearchQuery));
+    list.innerHTML = '';
+    $('#counter-search').hidden = allCounters.length <= LIST_SEARCH_THRESHOLD;
+    $('#counter-empty-state').hidden = allCounters.length > 0;
+    $('#counter-no-match').hidden = !(allCounters.length > 0 && counters.length === 0);
+    list.hidden = counters.length === 0;
+
+    counters.forEach(counter => {
+      const li = document.createElement('li');
+      li.className = 'counter-card';
+      li.style.setProperty('--habit-color', habitColorVar(counter));
+
+      const icon = document.createElement('div');
+      icon.className = 'habit-icon';
+      icon.textContent = counter.emoji || '📅';
+      icon.addEventListener('click', () => openEditCounter(counter));
+
+      const main = document.createElement('div');
+      main.className = 'habit-main';
+      main.addEventListener('click', () => openEditCounter(counter));
+      const name = document.createElement('p');
+      name.className = 'habit-name';
+      name.textContent = counter.name;
+      const meta = document.createElement('p');
+      meta.className = 'habit-meta';
+      const info = dayCounterInfo(counter);
+      meta.textContent = info.dateLabel;
+      main.append(name, meta);
+
+      const value = document.createElement('div');
+      value.className = 'counter-value';
+      value.addEventListener('click', () => openEditCounter(counter));
+      const number = document.createElement('p');
+      number.className = 'counter-number';
+      number.textContent = String(info.count);
+      const suffix = document.createElement('p');
+      suffix.className = 'counter-suffix';
+      suffix.textContent = info.suffix;
+      value.append(number, suffix);
+
+      li.append(icon, main, value, buildReorderButtons(state.dayCounters, allCounters, allCounters.indexOf(counter), renderDayCounterList));
+      list.appendChild(li);
+    });
+  }
 
   /* ---------------- yearly goal detail sheet ---------------- */
   let detailYearlyId = null;
@@ -2297,7 +2460,8 @@
     const archivedHabits = state.habits.filter(h => h.archived).map(h => ({ item: h, type: 'Habit', restore: () => { h.archived = false; renderAll(); } }));
     const archivedSupplements = state.supplements.filter(s => s.archived).map(s => ({ item: s, type: 'Supplement', restore: () => { s.archived = false; renderAll(); } }));
     const archivedYearly = state.yearlyHabits.filter(h => h.archived).map(h => ({ item: h, type: 'Yearly goal', restore: () => { h.archived = false; renderAll(); } }));
-    const all = [...archivedHabits, ...archivedSupplements, ...archivedYearly];
+    const archivedCounters = state.dayCounters.filter(c => c.archived).map(c => ({ item: c, type: 'Day counter', restore: () => { c.archived = false; renderAll(); } }));
+    const all = [...archivedHabits, ...archivedSupplements, ...archivedYearly, ...archivedCounters];
 
     $('#archived-empty').hidden = all.length > 0;
     all.forEach(({ item, type, restore }) => {
@@ -2383,6 +2547,8 @@
         Object.keys(parsed.supplementLogs || {}).forEach(sid => {
           state.supplementLogs[sid] = Object.assign(state.supplementLogs[sid] || {}, parsed.supplementLogs[sid]);
         });
+        const existingCounterIds = new Set(state.dayCounters.map(c => c.id));
+        (parsed.dayCounters || []).forEach(c => { if (!existingCounterIds.has(c.id)) state.dayCounters.push(c); });
       } else {
         state = Object.assign(defaultState(), parsed);
       }
@@ -2447,6 +2613,7 @@
   $('#habit-search').addEventListener('input', e => { habitSearchQuery = e.target.value; renderHabitList(); });
   $('#supplement-search').addEventListener('input', e => { supplementSearchQuery = e.target.value; renderSupplementList(); });
   $('#yearly-search').addEventListener('input', e => { yearlySearchQuery = e.target.value; renderYearlyList(); });
+  $('#counter-search').addEventListener('input', e => { counterSearchQuery = e.target.value; renderDayCounterList(); });
 
   /* ---------------- tabs ---------------- */
   const TAB_STORAGE_KEY = 'keystone-active-tab';
@@ -2505,6 +2672,7 @@
         yearlyHistory: newState.yearlyHistory && typeof newState.yearlyHistory === 'object' ? newState.yearlyHistory : {},
         supplements: Array.isArray(newState.supplements) ? newState.supplements : [],
         supplementLogs: newState.supplementLogs && typeof newState.supplementLogs === 'object' ? newState.supplementLogs : {},
+        dayCounters: Array.isArray(newState.dayCounters) ? newState.dayCounters : [],
         settings: Object.assign({ theme: 'auto' }, newState.settings || {}),
         updatedAt: typeof newState.updatedAt === 'number' ? newState.updatedAt : 0
       });

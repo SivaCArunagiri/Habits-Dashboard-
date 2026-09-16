@@ -42,7 +42,7 @@ function mergeStates(local, remote) {
   // additive union by id, regardless of recency, so they're merged separately below.
   const localIsNewer = (Number(local.updatedAt) || 0) >= (Number(remote.updatedAt) || 0);
 
-  ['habits', 'yearlyHabits', 'supplements'].forEach(key => {
+  ['habits', 'yearlyHabits', 'supplements', 'dayCounters'].forEach(key => {
     const remoteList = Array.isArray(remote[key]) ? remote[key] : [];
     const localIds = new Set((merged[key] || []).map(item => item.id));
     remoteList.forEach(item => { if (!localIds.has(item.id)) merged[key].push(item); });

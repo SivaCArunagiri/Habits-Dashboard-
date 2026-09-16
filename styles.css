@@ -384,6 +384,27 @@ input { font: inherit; }
   gap: 10px;
 }
 .yearly-top { display: flex; align-items: center; gap: 12px; }
+
+/* ---------- day counters ---------- */
+.counter-card {
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+.counter-value { text-align: right; flex-shrink: 0; }
+.counter-number {
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--habit-color);
+}
+.counter-suffix { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
 .meter-track {
   height: 10px;
   border-radius: 999px;

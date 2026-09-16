@@ -126,6 +126,27 @@
     </div>
   </section>
 
+  <section class="panel" aria-label="Day counters">
+    <div class="panel-header">
+      <h2>Day counters</h2>
+      <div class="panel-header-actions">
+        <button type="button" id="counter-reorder-toggle" class="btn btn-secondary">Reorder</button>
+        <button type="button" id="add-counter-btn" class="btn btn-secondary">+ Counter</button>
+      </div>
+    </div>
+    <input type="search" id="counter-search" class="search-input" placeholder="Search counters…" hidden>
+    <ul id="counter-list" class="habit-list"></ul>
+    <div id="counter-no-match" class="empty-state" hidden>
+      <p class="empty-state-title">No matches</p>
+      <p class="empty-state-body">Try a different search.</p>
+    </div>
+    <div id="counter-empty-state" class="empty-state" hidden>
+      <p class="empty-state-title">No counters yet</p>
+      <p class="empty-state-body">Track days since a milestone, or days until something coming up.</p>
+      <button type="button" id="counter-empty-add-btn" class="btn btn-primary">+ Add a counter</button>
+    </div>
+  </section>
+
   <section class="panel" aria-label="Today's note">
     <div class="panel-header">
       <h2>Today's note</h2>
@@ -487,6 +508,52 @@
       <div class="sheet-actions">
         <button type="button" id="delete-yearly-btn" class="btn btn-danger" hidden>Delete</button>
         <button type="submit" class="btn btn-primary btn-block">Save goal</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add / Edit day counter sheet -->
+<div id="counter-form-sheet-backdrop" class="sheet-backdrop" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="counter-form-sheet-title">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-header">
+      <h2 id="counter-form-sheet-title">Add counter</h2>
+      <button type="button" class="icon-btn sheet-close" data-close="counter-form-sheet" aria-label="Close">✕</button>
+    </div>
+    <form id="counter-form" class="sheet-body">
+      <label class="field">
+        <span class="field-label">Name</span>
+        <input type="text" id="counter-name" maxlength="40" placeholder="Quit smoking" required>
+      </label>
+
+      <div class="field">
+        <span class="field-label">Icon</span>
+        <div class="emoji-row" id="counter-emoji-row"></div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Color</span>
+        <div class="color-row" id="counter-color-row"></div>
+      </div>
+
+      <label class="field">
+        <span class="field-label">Date</span>
+        <input type="date" id="counter-date" required>
+        <span class="field-hint">Pick a date in the past to count days since, or a future date to count down to it.</span>
+      </label>
+
+      <div class="field" id="counter-active-row" hidden>
+        <label class="stock-toggle">
+          <input type="checkbox" id="counter-active" checked>
+          <span>Active (shows in Daily tab)</span>
+        </label>
+      </div>
+
+      <input type="hidden" id="counter-id">
+      <div class="sheet-actions">
+        <button type="button" id="delete-counter-btn" class="btn btn-danger" hidden>Delete</button>
+        <button type="submit" class="btn btn-primary btn-block">Save counter</button>
       </div>
     </form>
   </div>
