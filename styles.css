@@ -212,7 +212,7 @@ input { font: inherit; }
   margin: 0 auto;
   padding: 18px 20px 0;
 }
-.tab-panels { display: block; padding-bottom: 20px; }
+.tab-panels { display: block; padding-bottom: 0; }
 .tab-panel { display: flex; flex-direction: column; gap: 20px; }
 
 /* ---------- tab navigation ---------- */
@@ -839,7 +839,7 @@ input:focus { outline: 2px solid var(--series-1); outline-offset: 1px; }
 
 @media (max-width: 380px) {
   .dashboard { padding: 14px 14px 0; }
-  .tab-panels { padding-bottom: 14px; }
+  .tab-panels { padding-bottom: 0; }
   .tab-nav { margin: 0 -14px; }
   .tab-panel { gap: 16px; }
   .app-header { padding-left: 14px; padding-right: 14px; }
