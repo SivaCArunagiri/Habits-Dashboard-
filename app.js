@@ -84,7 +84,7 @@
       yearlyHabits: [], yearlyLogs: {}, yearlyHistory: {},
       supplements: [], supplementLogs: {},
       dayCounters: [],
-      settings: { theme: 'auto' }, updatedAt: 0
+      settings: { theme: 'auto', birthdate: '' }, updatedAt: 0
     };
   }
 
@@ -106,7 +106,7 @@
         supplements: Array.isArray(parsed.supplements) ? parsed.supplements : [],
         supplementLogs: parsed.supplementLogs && typeof parsed.supplementLogs === 'object' ? parsed.supplementLogs : {},
         dayCounters: Array.isArray(parsed.dayCounters) ? parsed.dayCounters : [],
-        settings: Object.assign({ theme: 'auto' }, parsed.settings || {}),
+        settings: Object.assign({ theme: 'auto', birthdate: '' }, parsed.settings || {}),
         updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : 0
       });
     } catch (e) {
@@ -2669,6 +2669,85 @@
   $('#yearly-search').addEventListener('input', e => { yearlySearchQuery = e.target.value; renderYearlyList(); });
   $('#counter-search').addEventListener('input', e => { counterSearchQuery = e.target.value; renderDayCounterList(); });
 
+  /* ---------------- memento mori ---------------- */
+  const LIFE_EXPECTANCY_YEARS = 75;
+  const WEEKS_PER_YEAR = 52;
+
+  function isLeapYear(y) { return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0; }
+
+  function dayOfYearInfo(d) {
+    const startOfYear = new Date(d.getFullYear(), 0, 1);
+    const index = Math.round((d - startOfYear) / 86400000) + 1;
+    return { index, total: isLeapYear(d.getFullYear()) ? 366 : 365 };
+  }
+
+  function weekOfYearInfo(d) {
+    const startOfYear = new Date(d.getFullYear(), 0, 1);
+    const index = Math.min(Math.floor((d - startOfYear) / (7 * 86400000)) + 1, WEEKS_PER_YEAR);
+    return { index, total: WEEKS_PER_YEAR };
+  }
+
+  function ageInfo(birthdateStr) {
+    const birth = parseLocal(birthdateStr);
+    const today = todayDate();
+    const daysLived = Math.floor((today - birth) / 86400000);
+    let years = today.getFullYear() - birth.getFullYear();
+    const hadBirthdayThisYear = (today.getMonth() > birth.getMonth()) ||
+      (today.getMonth() === birth.getMonth() && today.getDate() >= birth.getDate());
+    if (!hadBirthdayThisYear) years--;
+    const totalWeeks = LIFE_EXPECTANCY_YEARS * WEEKS_PER_YEAR;
+    return {
+      years: Math.max(0, years),
+      weeksLived: Math.min(Math.max(0, Math.floor(daysLived / 7)), totalWeeks),
+      totalWeeks
+    };
+  }
+
+  function renderLifeGrid(container, filled, total) {
+    container.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < total; i++) {
+      const dot = document.createElement('span');
+      dot.className = i < filled ? 'life-dot filled' : 'life-dot';
+      frag.appendChild(dot);
+    }
+    container.appendChild(frag);
+  }
+
+  function renderMementoMori() {
+    const today = todayDate();
+    const day = dayOfYearInfo(today);
+    const week = weekOfYearInfo(today);
+
+    $('#memento-day-stat').textContent = `Day ${day.index} of ${day.total} this year · ${Math.round(day.index / day.total * 100)}%`;
+    renderLifeGrid($('#memento-day-grid'), day.index, day.total);
+    $('#memento-week-stat').textContent = `Week ${week.index} of ${week.total} this year · ${Math.round(week.index / week.total * 100)}%`;
+    renderLifeGrid($('#memento-week-grid'), week.index, week.total);
+
+    const birthdate = state.settings.birthdate;
+    $('#memento-birthdate').value = birthdate || '';
+
+    const hasValidBirthdate = !!birthdate && !isNaN(parseLocal(birthdate).getTime());
+    $('#memento-life-empty').hidden = hasValidBirthdate;
+    $('#memento-life-content').hidden = !hasValidBirthdate;
+    if (!hasValidBirthdate) return;
+
+    const age = ageInfo(birthdate);
+    $('#memento-age-line').textContent = `You are ${age.years} years old.`;
+    const weeksPct = Math.round(age.weeksLived / age.totalWeeks * 100);
+    $('#memento-weeks-life-stat').textContent = `${age.weeksLived.toLocaleString()} of ${age.totalWeeks.toLocaleString()} weeks lived · ${weeksPct}%`;
+    renderLifeGrid($('#memento-weeks-life-grid'), age.weeksLived, age.totalWeeks);
+    const yearsPct = Math.round(age.years / LIFE_EXPECTANCY_YEARS * 100);
+    $('#memento-years-life-stat').textContent = `${age.years} of ${LIFE_EXPECTANCY_YEARS} years lived · ${yearsPct}%`;
+    renderLifeGrid($('#memento-years-life-grid'), age.years, LIFE_EXPECTANCY_YEARS);
+  }
+
+  $('#memento-birthdate').addEventListener('change', e => {
+    state.settings.birthdate = e.target.value;
+    saveState();
+    renderMementoMori();
+  });
+
   /* ---------------- tabs ---------------- */
   const TAB_STORAGE_KEY = 'keystone-active-tab';
   function switchTab(name) {
@@ -2700,6 +2779,7 @@
   setTodayLabel();
   syncReviewPeriodButtons();
   renderAll();
+  renderMementoMori();
   initTodayNote();
   initInstallTip();
   initTabs();
@@ -2727,7 +2807,7 @@
         supplements: Array.isArray(newState.supplements) ? newState.supplements : [],
         supplementLogs: newState.supplementLogs && typeof newState.supplementLogs === 'object' ? newState.supplementLogs : {},
         dayCounters: Array.isArray(newState.dayCounters) ? newState.dayCounters : [],
-        settings: Object.assign({ theme: 'auto' }, newState.settings || {}),
+        settings: Object.assign({ theme: 'auto', birthdate: '' }, newState.settings || {}),
         updatedAt: typeof newState.updatedAt === 'number' ? newState.updatedAt : 0
       });
       try {
@@ -2739,6 +2819,7 @@
       applyTheme(state.settings.theme);
       syncReviewPeriodButtons();
       renderAll();
+      renderMementoMori();
       initTodayNote();
     },
     onLocalSave: null,

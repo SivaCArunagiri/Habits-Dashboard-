@@ -243,6 +243,39 @@ input { font: inherit; }
   border-color: var(--series-1);
   color: var(--series-1);
 }
+.tab-btn-wide {
+  width: 100%;
+  flex-direction: row;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.tab-btn-wide .tab-icon { font-size: 16px; }
+
+/* ---------- memento mori ---------- */
+.memento-caption { font-size: 13px; color: var(--text-secondary); font-style: italic; margin-bottom: 14px; }
+.memento-birthdate-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.memento-birthdate-row label { font-size: 13.5px; font-weight: 600; }
+.memento-birthdate-row input[type="date"] {
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font: inherit;
+}
+.memento-stat-line { font-size: 13px; color: var(--text-secondary); margin: 14px 0 8px; }
+.memento-stat-line:first-of-type { margin-top: 0; }
+.memento-age-line { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+
+.life-grid { display: flex; flex-wrap: wrap; gap: 2px; }
+.life-dot { border-radius: 50%; background: var(--gridline); flex-shrink: 0; }
+.life-dot.filled { background: var(--series-1); }
+.life-grid--days .life-dot, .life-grid--weeks-year .life-dot { width: 7px; height: 7px; }
+.life-grid--weeks-life .life-dot { width: 4px; height: 4px; }
+.life-grid--years .life-dot { width: 10px; height: 10px; }
 
 /* ---------- stat tiles ---------- */
 .stat-grid {
@@ -812,14 +845,15 @@ input:focus { outline: 2px solid var(--series-1); outline-offset: 1px; }
     top: calc(84px + var(--safe-top));
     margin: 0;
     grid-column: 1;
-    grid-row: 1;
+    grid-row: 2;
     flex-direction: column;
     gap: 4px;
     background: transparent;
     border: none;
     padding: 0;
   }
-  .tab-panels { grid-column: 2; grid-row: 1; }
+  .tab-panels { grid-column: 2; grid-row: 2; }
+  .tab-btn-wide { grid-column: 1 / -1; grid-row: 1; margin-bottom: 0; }
   .tab-btn {
     flex-direction: row;
     justify-content: flex-start;

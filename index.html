@@ -56,6 +56,10 @@
 
 <main class="dashboard">
 
+  <button type="button" class="tab-btn tab-btn-wide" data-tab="memento">
+    <span class="tab-icon" aria-hidden="true">⏳</span><span class="tab-label">Memento Mori</span>
+  </button>
+
   <nav class="tab-nav" id="tab-nav" aria-label="Sections">
     <button type="button" class="tab-btn" data-tab="daily" aria-current="page">
       <span class="tab-icon" aria-hidden="true">📋</span><span class="tab-label">Daily</span>
@@ -72,6 +76,47 @@
   </nav>
 
   <div class="tab-panels">
+
+  <section class="tab-panel" data-tab-panel="memento">
+
+  <section class="panel" aria-label="Memento Mori">
+    <div class="panel-header">
+      <h2>Memento Mori</h2>
+    </div>
+    <p class="memento-caption">Remember: time is finite. Use it well.</p>
+    <div class="memento-birthdate-row">
+      <label for="memento-birthdate">Your birthdate</label>
+      <input type="date" id="memento-birthdate">
+    </div>
+  </section>
+
+  <section class="panel" aria-label="This year">
+    <div class="panel-header">
+      <h2>This year</h2>
+    </div>
+    <p class="memento-stat-line" id="memento-day-stat"></p>
+    <div class="life-grid life-grid--days" id="memento-day-grid"></div>
+    <p class="memento-stat-line" id="memento-week-stat"></p>
+    <div class="life-grid life-grid--weeks-year" id="memento-week-grid"></div>
+  </section>
+
+  <section class="panel" aria-label="Your life">
+    <div class="panel-header">
+      <h2>Your life</h2>
+    </div>
+    <div class="empty-state" id="memento-life-empty">
+      <p class="empty-state-body">Enter your birthdate above to see this.</p>
+    </div>
+    <div id="memento-life-content" hidden>
+      <p class="memento-age-line" id="memento-age-line"></p>
+      <p class="memento-stat-line" id="memento-weeks-life-stat"></p>
+      <div class="life-grid life-grid--weeks-life" id="memento-weeks-life-grid"></div>
+      <p class="memento-stat-line" id="memento-years-life-stat"></p>
+      <div class="life-grid life-grid--years" id="memento-years-life-grid"></div>
+    </div>
+  </section>
+
+  </section>
 
   <section class="tab-panel" data-tab-panel="daily">
 
