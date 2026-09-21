@@ -47,7 +47,7 @@ function mergeStates(local, remote) {
     const localIds = new Set((merged[key] || []).map(item => item.id));
     remoteList.forEach(item => { if (!localIds.has(item.id)) merged[key].push(item); });
   });
-  ['logs', 'habitNotes', 'tinyLogs', 'yearlyLogs', 'yearlyHistory', 'supplementLogs'].forEach(key => {
+  ['logs', 'habitNotes', 'tinyLogs', 'yearlyLogs', 'yearlyHistory', 'supplementLogs', 'eveningReviews'].forEach(key => {
     const remoteMap = remote[key] || {};
     merged[key] = merged[key] || {};
     Object.keys(remoteMap).forEach(id => {

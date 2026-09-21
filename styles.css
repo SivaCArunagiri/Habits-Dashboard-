@@ -591,6 +591,8 @@ input { font: inherit; }
 .note-textarea:focus { outline: 2px solid var(--series-1); outline-offset: 1px; }
 .note-actions { align-items: center; margin-top: 12px; }
 .note-saved { color: var(--good); font-weight: 600; }
+.evening-review-label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
+.evening-review-label:first-of-type { margin-top: 0; }
 
 /* ---------- trend chart ---------- */
 .trend-panel { display: flex; flex-direction: column; gap: 8px; }

@@ -84,6 +84,7 @@
       yearlyHabits: [], yearlyLogs: {}, yearlyHistory: {},
       supplements: [], supplementLogs: {},
       dayCounters: [],
+      eveningReviews: {},
       settings: { theme: 'auto', birthdate: '' }, updatedAt: 0
     };
   }
@@ -106,6 +107,7 @@
         supplements: Array.isArray(parsed.supplements) ? parsed.supplements : [],
         supplementLogs: parsed.supplementLogs && typeof parsed.supplementLogs === 'object' ? parsed.supplementLogs : {},
         dayCounters: Array.isArray(parsed.dayCounters) ? parsed.dayCounters : [],
+        eveningReviews: parsed.eveningReviews && typeof parsed.eveningReviews === 'object' ? parsed.eveningReviews : {},
         settings: Object.assign({ theme: 'auto', birthdate: '' }, parsed.settings || {}),
         updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : 0
       });
@@ -450,6 +452,18 @@
   function setNote(ds, text) {
     if ((text || '').trim()) state.notes[ds] = text;
     else delete state.notes[ds];
+  }
+  const EVENING_REVIEW_FIELDS = ['well', 'wrong', 'different'];
+  function getEveningReview(ds) {
+    const entry = state.eveningReviews[ds] || {};
+    return { well: entry.well || '', wrong: entry.wrong || '', different: entry.different || '' };
+  }
+  function setEveningReviewField(ds, field, text) {
+    const entry = Object.assign({}, state.eveningReviews[ds]);
+    if ((text || '').trim()) entry[field] = text;
+    else delete entry[field];
+    if (EVENING_REVIEW_FIELDS.some(f => (entry[f] || '').trim())) state.eveningReviews[ds] = entry;
+    else delete state.eveningReviews[ds];
   }
   function getHabitNote(habitId, ds) {
     const bucket = state.habitNotes[habitId];
@@ -2453,6 +2467,26 @@
   }
   $('#share-today-btn').addEventListener('click', () => shareDay(todayStr()));
 
+  /* ---------------- evening review (dashboard) ---------------- */
+  let eveningReviewSavedTimer = null;
+  function initEveningReview() {
+    const ds = todayStr();
+    const review = getEveningReview(ds);
+    const fields = { well: $('#evening-review-well'), wrong: $('#evening-review-wrong'), different: $('#evening-review-different') };
+    Object.keys(fields).forEach(field => {
+      const el = fields[field];
+      el.value = review[field];
+      el.addEventListener('input', debounce(() => {
+        setEveningReviewField(ds, field, el.value);
+        saveState();
+        const saved = $('#evening-review-saved');
+        saved.hidden = false;
+        clearTimeout(eveningReviewSavedTimer);
+        eveningReviewSavedTimer = setTimeout(() => { saved.hidden = true; }, 1500);
+      }, 400));
+    });
+  }
+
   /* ---------------- share a day's summary ---------------- */
   function daySummaryText(ds) {
     const habits = activeHabits().filter(h => isScheduled(h, ds));
@@ -2483,6 +2517,14 @@
       lines.push('');
       lines.push('Notes:');
       lines.push(note.trim());
+    }
+    const review = getEveningReview(ds);
+    if (review.well.trim() || review.wrong.trim() || review.different.trim()) {
+      lines.push('');
+      lines.push('Evening review:');
+      if (review.well.trim()) lines.push(`  Went well: ${review.well.trim()}`);
+      if (review.wrong.trim()) lines.push(`  Went wrong: ${review.wrong.trim()}`);
+      if (review.different.trim()) lines.push(`  Do differently: ${review.different.trim()}`);
     }
     return lines.join('\n');
   }
@@ -2603,6 +2645,9 @@
         });
         const existingCounterIds = new Set(state.dayCounters.map(c => c.id));
         (parsed.dayCounters || []).forEach(c => { if (!existingCounterIds.has(c.id)) state.dayCounters.push(c); });
+        Object.keys(parsed.eveningReviews || {}).forEach(ds => {
+          state.eveningReviews[ds] = Object.assign({}, state.eveningReviews[ds] || {}, parsed.eveningReviews[ds]);
+        });
       } else {
         state = Object.assign(defaultState(), parsed);
       }
@@ -2610,6 +2655,7 @@
       applyTheme(state.settings.theme);
       renderAll();
       initTodayNote();
+      initEveningReview();
       showToast('Backup imported');
     } catch (err) {
       console.error(err);
@@ -2626,6 +2672,7 @@
     applyTheme('auto');
     renderAll();
     initTodayNote();
+    initEveningReview();
     closeSheet('settings-sheet');
     showToast('All data erased');
   });
@@ -2778,6 +2825,7 @@
   renderAll();
   renderMementoMori();
   initTodayNote();
+  initEveningReview();
   initInstallTip();
   initTabs();
 
@@ -2804,6 +2852,7 @@
         supplements: Array.isArray(newState.supplements) ? newState.supplements : [],
         supplementLogs: newState.supplementLogs && typeof newState.supplementLogs === 'object' ? newState.supplementLogs : {},
         dayCounters: Array.isArray(newState.dayCounters) ? newState.dayCounters : [],
+        eveningReviews: newState.eveningReviews && typeof newState.eveningReviews === 'object' ? newState.eveningReviews : {},
         settings: Object.assign({ theme: 'auto', birthdate: '' }, newState.settings || {}),
         updatedAt: typeof newState.updatedAt === 'number' ? newState.updatedAt : 0
       });
@@ -2818,6 +2867,7 @@
       renderAll();
       renderMementoMori();
       initTodayNote();
+      initEveningReview();
     },
     onLocalSave: null,
     toast: (msg) => showToast(msg)
