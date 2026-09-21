@@ -2737,9 +2737,6 @@
     const weeksPct = Math.round(age.weeksLived / age.totalWeeks * 100);
     $('#memento-weeks-life-stat').textContent = `${age.weeksLived.toLocaleString()} of ${age.totalWeeks.toLocaleString()} weeks lived · ${weeksPct}%`;
     renderLifeGrid($('#memento-weeks-life-grid'), age.weeksLived, age.totalWeeks);
-    const yearsPct = Math.round(age.years / LIFE_EXPECTANCY_YEARS * 100);
-    $('#memento-years-life-stat').textContent = `${age.years} of ${LIFE_EXPECTANCY_YEARS} years lived · ${yearsPct}%`;
-    renderLifeGrid($('#memento-years-life-grid'), age.years, LIFE_EXPECTANCY_YEARS);
   }
 
   $('#memento-birthdate').addEventListener('change', e => {

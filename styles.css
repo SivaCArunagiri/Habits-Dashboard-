@@ -275,7 +275,6 @@ input { font: inherit; }
 .life-dot.filled { background: var(--series-1); }
 .life-grid--days .life-dot, .life-grid--weeks-year .life-dot { width: 7px; height: 7px; }
 .life-grid--weeks-life .life-dot { width: 4px; height: 4px; }
-.life-grid--years .life-dot { width: 10px; height: 10px; }
 
 /* ---------- stat tiles ---------- */
 .stat-grid {
