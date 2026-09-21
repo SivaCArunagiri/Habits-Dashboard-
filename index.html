@@ -196,17 +196,6 @@
     </div>
   </section>
 
-  <section class="panel" aria-label="Today's note">
-    <div class="panel-header">
-      <h2>Today's note</h2>
-    </div>
-    <textarea id="today-note-input" class="note-textarea" rows="3" placeholder="How did today go?"></textarea>
-    <div class="settings-row note-actions">
-      <button type="button" id="share-today-btn" class="btn btn-secondary">Share today's summary</button>
-      <span id="today-note-saved" class="field-hint note-saved" hidden>Saved</span>
-    </div>
-  </section>
-
   <section class="panel" aria-label="Evening review">
     <div class="panel-header">
       <h2>Evening review</h2>
@@ -218,7 +207,10 @@
     <textarea id="evening-review-wrong" class="note-textarea" rows="2"></textarea>
     <label class="evening-review-label" for="evening-review-different">What will I do differently tomorrow?</label>
     <textarea id="evening-review-different" class="note-textarea" rows="2"></textarea>
-    <span id="evening-review-saved" class="field-hint note-saved" hidden>Saved</span>
+    <div class="settings-row note-actions">
+      <button type="button" id="share-today-btn" class="btn btn-secondary">Share today's summary</button>
+      <span id="evening-review-saved" class="field-hint note-saved" hidden>Saved</span>
+    </div>
   </section>
 
   </section>

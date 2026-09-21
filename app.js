@@ -2451,20 +2451,6 @@
 
   $('#day-sheet-share-btn').addEventListener('click', () => shareDay(currentDaySheetDate));
 
-  /* ---------------- today's note (dashboard) ---------------- */
-  let todayNoteSavedTimer = null;
-  function initTodayNote() {
-    const ta = $('#today-note-input');
-    ta.value = getNote(todayStr());
-    ta.addEventListener('input', debounce(() => {
-      setNote(todayStr(), ta.value);
-      saveState();
-      const saved = $('#today-note-saved');
-      saved.hidden = false;
-      clearTimeout(todayNoteSavedTimer);
-      todayNoteSavedTimer = setTimeout(() => { saved.hidden = true; }, 1500);
-    }, 400));
-  }
   $('#share-today-btn').addEventListener('click', () => shareDay(todayStr()));
 
   /* ---------------- evening review (dashboard) ---------------- */
@@ -2654,7 +2640,6 @@
       saveState();
       applyTheme(state.settings.theme);
       renderAll();
-      initTodayNote();
       initEveningReview();
       showToast('Backup imported');
     } catch (err) {
@@ -2671,7 +2656,6 @@
     saveState();
     applyTheme('auto');
     renderAll();
-    initTodayNote();
     initEveningReview();
     closeSheet('settings-sheet');
     showToast('All data erased');
@@ -2824,7 +2808,6 @@
   syncReviewPeriodButtons();
   renderAll();
   renderMementoMori();
-  initTodayNote();
   initEveningReview();
   initInstallTip();
   initTabs();
@@ -2866,7 +2849,6 @@
       syncReviewPeriodButtons();
       renderAll();
       renderMementoMori();
-      initTodayNote();
       initEveningReview();
     },
     onLocalSave: null,
