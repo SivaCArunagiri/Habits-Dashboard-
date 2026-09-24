@@ -2727,10 +2727,13 @@
       (today.getMonth() === birth.getMonth() && today.getDate() >= birth.getDate());
     if (!hadBirthdayThisYear) years--;
     const totalWeeks = LIFE_EXPECTANCY_YEARS * WEEKS_PER_YEAR;
+    const estimatedEnd = new Date(birth.getFullYear() + LIFE_EXPECTANCY_YEARS, birth.getMonth(), birth.getDate());
+    const daysRemaining = Math.max(0, Math.round((estimatedEnd - today) / 86400000));
     return {
       years: Math.max(0, years),
       weeksLived: Math.min(Math.max(0, Math.floor(daysLived / 7)), totalWeeks),
-      totalWeeks
+      totalWeeks,
+      daysRemaining
     };
   }
 
@@ -2754,6 +2757,8 @@
     renderLifeGrid($('#memento-day-grid'), day.index, day.total);
     $('#memento-week-stat').textContent = `Week ${week.index} of ${week.total} this year · ${Math.round(week.index / week.total * 100)}%`;
     renderLifeGrid($('#memento-week-grid'), week.index, week.total);
+    const daysLeftThisYear = day.total - day.index;
+    $('#memento-year-remaining').textContent = daysLeftThisYear === 1 ? '1 day left this year.' : `${daysLeftThisYear.toLocaleString()} days left this year.`;
 
     const birthdate = state.settings.birthdate;
     $('#memento-birthdate').value = birthdate || '';
@@ -2768,6 +2773,7 @@
     const weeksPct = Math.round(age.weeksLived / age.totalWeeks * 100);
     $('#memento-weeks-life-stat').textContent = `${age.weeksLived.toLocaleString()} of ${age.totalWeeks.toLocaleString()} weeks lived · ${weeksPct}%`;
     renderLifeGrid($('#memento-weeks-life-grid'), age.weeksLived, age.totalWeeks);
+    $('#memento-life-remaining').textContent = `${age.daysRemaining.toLocaleString()} days left, estimated (based on a ${LIFE_EXPECTANCY_YEARS}-year life expectancy).`;
   }
 
   $('#memento-birthdate').addEventListener('change', e => {

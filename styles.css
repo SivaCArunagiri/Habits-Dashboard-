@@ -269,6 +269,7 @@ input { font: inherit; }
 .memento-stat-line { font-size: 13px; color: var(--text-secondary); margin: 14px 0 8px; }
 .memento-stat-line:first-of-type { margin-top: 0; }
 .memento-age-line { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.memento-remaining-line { font-size: 13px; font-weight: 600; color: var(--series-1); margin-top: 14px; }
 
 .life-grid { display: flex; flex-wrap: wrap; gap: 2px; }
 .life-dot { border-radius: 50%; background: var(--gridline); flex-shrink: 0; }
