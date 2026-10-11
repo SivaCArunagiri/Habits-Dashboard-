@@ -1302,6 +1302,7 @@
     $('#habit-unit').value = '';
     $('#habit-tiny-target').value = '';
     $('#habit-tiny-note').value = '';
+    $('#habit-share-summary').checked = true;
     $('#habit-id').value = '';
     $('#delete-habit-btn').hidden = true;
     $('#habit-active-row').hidden = true;
@@ -1324,6 +1325,7 @@
     $('#habit-unit').value = habit.unit || '';
     $('#habit-tiny-target').value = habit.tinyTarget || '';
     $('#habit-tiny-note').value = habit.tinyNote || '';
+    $('#habit-share-summary').checked = !habit.excludeFromSummary;
     $('#habit-id').value = habit.id;
     $('#delete-habit-btn').hidden = false;
     $('#habit-active-row').hidden = false;
@@ -1345,15 +1347,16 @@
     const tinyTargetRaw = parseInt($('#habit-tiny-target').value, 10);
     const tinyTarget = formType === 'count' && tinyTargetRaw > 0 ? Math.min(tinyTargetRaw, target) : null;
     const tinyNote = formType === 'check' ? $('#habit-tiny-note').value.trim() : '';
+    const excludeFromSummary = !$('#habit-share-summary').checked;
 
     if (editingHabitId) {
       const h = state.habits.find(h => h.id === editingHabitId);
-      Object.assign(h, { name, cue, emoji: formEmoji, color: formColor, days: [...formDays], type: formType, target, unit, tinyTarget, tinyNote, archived: !$('#habit-active').checked });
+      Object.assign(h, { name, cue, emoji: formEmoji, color: formColor, days: [...formDays], type: formType, target, unit, tinyTarget, tinyNote, excludeFromSummary, archived: !$('#habit-active').checked });
     } else {
       state.habits.push({
         id: 'h_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
         name, cue, emoji: formEmoji, color: formColor, days: [...formDays],
-        type: formType, target, unit, tinyTarget, tinyNote,
+        type: formType, target, unit, tinyTarget, tinyNote, excludeFromSummary,
         createdAt: todayStr(), archived: false
       });
     }
@@ -2475,7 +2478,7 @@
 
   /* ---------------- share a day's summary ---------------- */
   function daySummaryText(ds) {
-    const habits = activeHabits().filter(h => isScheduled(h, ds));
+    const habits = activeHabits().filter(h => isScheduled(h, ds) && !h.excludeFromSummary);
     const lines = [`${humanDateLong(ds)} — Keystone summary`, ''];
     let doneCount = 0;
     habits.forEach(h => {
