@@ -224,6 +224,23 @@
     }
     return count;
   }
+  const MISSED_HABIT_THRESHOLD = 2;
+  function consecutiveMissedDays(habit) {
+    const floor = floorDate(habit);
+    let cursor = addDays(todayDate(), -1);
+    let count = 0;
+    let guard = 0;
+    while (fmt(cursor) >= floor && guard < 20000) {
+      guard++;
+      const ds = fmt(cursor);
+      if (isScheduled(habit, ds)) {
+        if (isDone(habit, ds)) break;
+        count++;
+      }
+      cursor = addDays(cursor, -1);
+    }
+    return count;
+  }
   function longestStreak(habit) {
     const start = parseLocal(floorDate(habit));
     const end = todayDate();
@@ -718,18 +735,7 @@
   $('#yearly-reorder-toggle').addEventListener('click', () => toggleReorderMode('yearly', $('#yearly-reorder-toggle'), renderYearlyList));
   $('#counter-reorder-toggle').addEventListener('click', () => toggleReorderMode('counter', $('#counter-reorder-toggle'), renderDayCounterList));
 
-  function renderHabitList() {
-    const list = $('#habit-list');
-    list.classList.toggle('reordering', habitReorderMode);
-    const allHabits = activeHabits();
-    const habits = allHabits.filter(h => matchesQuery(h.name, habitSearchQuery));
-    list.innerHTML = '';
-    $('#habit-search').hidden = allHabits.length <= LIST_SEARCH_THRESHOLD;
-    $('#empty-state').hidden = allHabits.length > 0;
-    $('#habit-no-match').hidden = !(allHabits.length > 0 && habits.length === 0);
-    list.hidden = habits.length === 0;
-
-    habits.forEach(habit => {
+  function buildHabitRow(habit, reorderCtx) {
       const li = document.createElement('li');
       li.className = 'habit-row';
       li.style.setProperty('--habit-color', habitColorVar(habit));
@@ -811,8 +817,37 @@
         control.appendChild(btn);
       }
 
-      li.append(icon, main, control, buildReorderButtons(state.habits, allHabits, allHabits.indexOf(habit), renderHabitList));
-      list.appendChild(li);
+      li.append(icon, main, control);
+      if (reorderCtx) li.appendChild(buildReorderButtons(state.habits, reorderCtx.allHabits, reorderCtx.index, reorderCtx.rerender));
+      return li;
+  }
+
+  function renderHabitList() {
+    const list = $('#habit-list');
+    const attentionPanel = $('#attention-panel');
+    const attentionList = $('#attention-list');
+    list.classList.toggle('reordering', habitReorderMode);
+
+    const allHabits = activeHabits();
+    const needsAttention = allHabits
+      .filter(h => !isDone(h, todayStr()) && consecutiveMissedDays(h) >= MISSED_HABIT_THRESHOLD)
+      .sort((a, b) => consecutiveMissedDays(b) - consecutiveMissedDays(a));
+    const attentionIds = new Set(needsAttention.map(h => h.id));
+    const regularHabits = allHabits.filter(h => !attentionIds.has(h.id));
+
+    attentionPanel.hidden = needsAttention.length === 0;
+    attentionList.innerHTML = '';
+    needsAttention.forEach(habit => attentionList.appendChild(buildHabitRow(habit, null)));
+
+    const habits = regularHabits.filter(h => matchesQuery(h.name, habitSearchQuery));
+    list.innerHTML = '';
+    $('#habit-search').hidden = regularHabits.length <= LIST_SEARCH_THRESHOLD;
+    $('#empty-state').hidden = allHabits.length > 0;
+    $('#habit-no-match').hidden = !(regularHabits.length > 0 && habits.length === 0);
+    list.hidden = habits.length === 0;
+
+    habits.forEach((habit, i) => {
+      list.appendChild(buildHabitRow(habit, { allHabits: regularHabits, index: i, rerender: renderHabitList }));
     });
   }
 
