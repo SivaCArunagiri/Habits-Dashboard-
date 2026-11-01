@@ -166,6 +166,18 @@
       <input type="number" id="steps-yesterday-input" min="0" step="1" inputmode="numeric" placeholder="e.g., 8500">
     </label>
     <span id="steps-saved" class="field-hint note-saved" hidden>Saved</span>
+    <button type="button" id="steps-backfill-toggle" class="text-link-btn">Log a different day</button>
+    <div class="field-row steps-backfill-row" id="steps-backfill-row" hidden>
+      <label class="field field-shrink">
+        <span class="field-label">Date</span>
+        <input type="date" id="steps-backfill-date">
+      </label>
+      <label class="field field-grow">
+        <span class="field-label">Steps</span>
+        <input type="number" id="steps-backfill-value" min="0" step="1" inputmode="numeric" placeholder="e.g., 7200">
+      </label>
+      <button type="button" id="steps-backfill-save" class="btn btn-secondary">Save</button>
+    </div>
 
     <label class="field">
       <span class="field-label">This week's target (steps/day)</span>

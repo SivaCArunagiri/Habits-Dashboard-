@@ -2962,6 +2962,31 @@
     renderSteps();
   }, 400));
 
+  $('#steps-backfill-toggle').addEventListener('click', () => {
+    const row = $('#steps-backfill-row');
+    row.hidden = !row.hidden;
+    if (!row.hidden) {
+      const dateInput = $('#steps-backfill-date');
+      const maxDate = fmt(addDays(todayDate(), -1));
+      dateInput.max = maxDate;
+      if (!dateInput.value) dateInput.value = maxDate;
+      $('#steps-backfill-value').value = '';
+      dateInput.focus();
+    }
+  });
+
+  $('#steps-backfill-save').addEventListener('click', () => {
+    const ds = $('#steps-backfill-date').value;
+    if (!ds || ds > fmt(addDays(todayDate(), -1))) { showToast('Pick a date before today'); return; }
+    const raw = $('#steps-backfill-value').value;
+    if (raw === '') delete state.stepLogs[ds];
+    else state.stepLogs[ds] = Math.max(0, Math.round(Number(raw)));
+    saveState();
+    flashStepsSaved();
+    renderSteps();
+    $('#steps-backfill-row').hidden = true;
+  });
+
   /* ---------------- tabs ---------------- */
   const TAB_STORAGE_KEY = 'keystone-active-tab';
   function switchTab(name) {

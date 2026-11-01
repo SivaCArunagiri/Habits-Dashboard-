@@ -502,6 +502,18 @@ input { font: inherit; }
 .burndown-label.today { fill: var(--text-primary); font-weight: 700; }
 .steps-svg { width: 100%; height: auto; display: block; overflow: visible; }
 .steps-bar { fill: var(--series-1); }
+.text-link-btn {
+  background: none;
+  border: none;
+  padding: 2px 0;
+  margin: -4px 0 12px;
+  color: var(--series-1);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+.steps-backfill-row { margin-bottom: 14px; }
 
 /* ---------- supplements ---------- */
 .supplement-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
