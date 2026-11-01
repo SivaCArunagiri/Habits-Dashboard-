@@ -85,6 +85,7 @@
       supplements: [], supplementLogs: {},
       dayCounters: [],
       eveningReviews: {},
+      stepLogs: {}, stepWeeklyTargets: {},
       settings: { theme: 'auto', birthdate: '' }, updatedAt: 0
     };
   }
@@ -108,6 +109,8 @@
         supplementLogs: parsed.supplementLogs && typeof parsed.supplementLogs === 'object' ? parsed.supplementLogs : {},
         dayCounters: Array.isArray(parsed.dayCounters) ? parsed.dayCounters : [],
         eveningReviews: parsed.eveningReviews && typeof parsed.eveningReviews === 'object' ? parsed.eveningReviews : {},
+        stepLogs: parsed.stepLogs && typeof parsed.stepLogs === 'object' ? parsed.stepLogs : {},
+        stepWeeklyTargets: parsed.stepWeeklyTargets && typeof parsed.stepWeeklyTargets === 'object' ? parsed.stepWeeklyTargets : {},
         settings: Object.assign({ theme: 'auto', birthdate: '' }, parsed.settings || {}),
         updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : 0
       });
@@ -2672,6 +2675,8 @@
         Object.keys(parsed.eveningReviews || {}).forEach(ds => {
           state.eveningReviews[ds] = Object.assign({}, state.eveningReviews[ds] || {}, parsed.eveningReviews[ds]);
         });
+        Object.assign(state.stepLogs, parsed.stepLogs || {});
+        Object.assign(state.stepWeeklyTargets, parsed.stepWeeklyTargets || {});
       } else {
         state = Object.assign(defaultState(), parsed);
       }
@@ -2820,6 +2825,143 @@
     renderMementoMori();
   });
 
+  /* ---------------- steps ---------------- */
+  function weekDatesFor(date) {
+    const start = startOfWeek(date);
+    return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+  }
+
+  function renderStepsChart(weekDates, target) {
+    const container = $('#steps-chart');
+    container.innerHTML = '';
+    const todayStrVal = todayStr();
+    const values = weekDates.map(d => {
+      const v = state.stepLogs[fmt(d)];
+      return typeof v === 'number' ? v : 0;
+    });
+    const maxVal = Math.max(target || 0, ...values, 1);
+
+    const W = 350, H = 140, PAD_X = 8, PAD_TOP = 10, PAD_BOTTOM = 22;
+    const barAreaW = W - PAD_X * 2;
+    const barSlot = barAreaW / 7;
+    const barW = barSlot * 0.55;
+    const yScale = v => (H - PAD_BOTTOM) - (v / maxVal) * (H - PAD_BOTTOM - PAD_TOP);
+
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('class', 'steps-svg');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', 'Steps this week, Sunday through Saturday');
+
+    const baseline = document.createElementNS(SVG_NS, 'line');
+    baseline.setAttribute('x1', PAD_X); baseline.setAttribute('x2', W - PAD_X);
+    baseline.setAttribute('y1', yScale(0)); baseline.setAttribute('y2', yScale(0));
+    baseline.setAttribute('class', 'burndown-gridline');
+    svg.appendChild(baseline);
+
+    if (target) {
+      const targetLine = document.createElementNS(SVG_NS, 'line');
+      targetLine.setAttribute('x1', PAD_X); targetLine.setAttribute('x2', W - PAD_X);
+      targetLine.setAttribute('y1', yScale(target)); targetLine.setAttribute('y2', yScale(target));
+      targetLine.setAttribute('class', 'burndown-ideal');
+      svg.appendChild(targetLine);
+    }
+
+    const DAY_SHORT = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    weekDates.forEach((d, i) => {
+      const ds = fmt(d);
+      const v = values[i];
+      const x = PAD_X + i * barSlot + (barSlot - barW) / 2;
+      if (v > 0) {
+        const barTop = yScale(v);
+        const barH = Math.max(0, yScale(0) - barTop);
+        const rect = document.createElementNS(SVG_NS, 'rect');
+        rect.setAttribute('x', x);
+        rect.setAttribute('y', barTop);
+        rect.setAttribute('width', barW);
+        rect.setAttribute('height', barH);
+        rect.setAttribute('rx', 4);
+        rect.setAttribute('class', 'steps-bar');
+        svg.appendChild(rect);
+      }
+      const label = document.createElementNS(SVG_NS, 'text');
+      label.setAttribute('x', x + barW / 2);
+      label.setAttribute('y', H - 6);
+      label.setAttribute('text-anchor', 'middle');
+      label.setAttribute('class', 'burndown-label' + (ds === todayStrVal ? ' today' : ''));
+      label.textContent = DAY_SHORT[i];
+      svg.appendChild(label);
+    });
+
+    container.appendChild(svg);
+  }
+
+  function renderSteps() {
+    const today = todayDate();
+    const yesterday = addDays(today, -1);
+    const yesterdayStr = fmt(yesterday);
+    $('#steps-yesterday-label').textContent = `Yesterday's steps (${humanDate(yesterdayStr)})`;
+    const yesterdayVal = state.stepLogs[yesterdayStr];
+    $('#steps-yesterday-input').value = typeof yesterdayVal === 'number' ? yesterdayVal : '';
+
+    const weekDates = weekDatesFor(today);
+    const weekStartStr = fmt(weekDates[0]);
+    const target = state.stepWeeklyTargets[weekStartStr];
+    $('#steps-target-input').value = typeof target === 'number' ? target : '';
+
+    const loggedSoFar = weekDates.reduce((sum, d) => {
+      const v = state.stepLogs[fmt(d)];
+      return sum + (typeof v === 'number' ? v : 0);
+    }, 0);
+
+    if (typeof target === 'number' && target > 0) {
+      const weeklyTotal = target * 7;
+      $('#steps-weekly-total').textContent = `Target: ${weeklyTotal.toLocaleString()} steps this week`;
+      const daysRemaining = Math.max(1, Math.round((weekDates[6] - today) / 86400000) + 1);
+      const stepsNeeded = Math.max(0, weeklyTotal - loggedSoFar);
+      if (stepsNeeded === 0) {
+        $('#steps-pace-line').textContent = `Target already reached for this week — nice.`;
+      } else {
+        const requiredAvg = Math.ceil(stepsNeeded / daysRemaining);
+        $('#steps-pace-line').textContent = `Average ${requiredAvg.toLocaleString()} steps/day for the rest of the week to hit your target.`;
+      }
+    } else {
+      $('#steps-weekly-total').textContent = '';
+      $('#steps-pace-line').textContent = "Set this week's target to see your pace.";
+    }
+
+    $('#steps-sum-line').textContent = `${loggedSoFar.toLocaleString()} steps logged so far this week`;
+    renderStepsChart(weekDates, typeof target === 'number' ? target : 0);
+  }
+
+  let stepsSavedTimer = null;
+  function flashStepsSaved() {
+    const saved = $('#steps-saved');
+    saved.hidden = false;
+    clearTimeout(stepsSavedTimer);
+    stepsSavedTimer = setTimeout(() => { saved.hidden = true; }, 1500);
+  }
+
+  $('#steps-yesterday-input').addEventListener('input', debounce(e => {
+    const yesterdayStr = fmt(addDays(todayDate(), -1));
+    const raw = e.target.value;
+    if (raw === '') delete state.stepLogs[yesterdayStr];
+    else state.stepLogs[yesterdayStr] = Math.max(0, Math.round(Number(raw)));
+    saveState();
+    flashStepsSaved();
+    renderSteps();
+  }, 400));
+
+  $('#steps-target-input').addEventListener('input', debounce(e => {
+    const weekStartStr = fmt(weekDatesFor(todayDate())[0]);
+    const raw = e.target.value;
+    if (raw === '') delete state.stepWeeklyTargets[weekStartStr];
+    else state.stepWeeklyTargets[weekStartStr] = Math.max(0, Math.round(Number(raw)));
+    saveState();
+    flashStepsSaved();
+    renderSteps();
+  }, 400));
+
   /* ---------------- tabs ---------------- */
   const TAB_STORAGE_KEY = 'keystone-active-tab';
   function switchTab(name) {
@@ -2852,6 +2994,7 @@
   syncReviewPeriodButtons();
   renderAll();
   renderMementoMori();
+  renderSteps();
   initEveningReview();
   initInstallTip();
   initTabs();
@@ -2880,6 +3023,8 @@
         supplementLogs: newState.supplementLogs && typeof newState.supplementLogs === 'object' ? newState.supplementLogs : {},
         dayCounters: Array.isArray(newState.dayCounters) ? newState.dayCounters : [],
         eveningReviews: newState.eveningReviews && typeof newState.eveningReviews === 'object' ? newState.eveningReviews : {},
+        stepLogs: newState.stepLogs && typeof newState.stepLogs === 'object' ? newState.stepLogs : {},
+        stepWeeklyTargets: newState.stepWeeklyTargets && typeof newState.stepWeeklyTargets === 'object' ? newState.stepWeeklyTargets : {},
         settings: Object.assign({ theme: 'auto', birthdate: '' }, newState.settings || {}),
         updatedAt: typeof newState.updatedAt === 'number' ? newState.updatedAt : 0
       });
@@ -2893,6 +3038,7 @@
       syncReviewPeriodButtons();
       renderAll();
       renderMementoMori();
+      renderSteps();
       initEveningReview();
     },
     onLocalSave: null,

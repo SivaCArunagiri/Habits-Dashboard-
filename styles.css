@@ -491,6 +491,7 @@ input { font: inherit; }
   background-image: repeating-linear-gradient(to right, var(--text-muted) 0 4px, transparent 4px 7px);
 }
 .burndown-legend-swatch.actual { background: var(--habit-color); }
+.burndown-legend-swatch.steps { background: var(--series-1); }
 .burndown-svg { width: 100%; height: auto; display: block; overflow: visible; }
 .burndown-gridline { stroke: var(--gridline); stroke-width: 1; }
 .burndown-ideal { fill: none; stroke: var(--text-muted); stroke-width: 2; stroke-dasharray: 5 4; }
@@ -498,6 +499,9 @@ input { font: inherit; }
 .burndown-dot { fill: var(--habit-color); stroke: var(--surface-1); stroke-width: 2; }
 .burndown-today { stroke: var(--border-strong); stroke-width: 1; stroke-dasharray: 2 2; }
 .burndown-label { fill: var(--text-muted); font-size: 9px; font-family: 'Poppins', system-ui, -apple-system, sans-serif; }
+.burndown-label.today { fill: var(--text-primary); font-weight: 700; }
+.steps-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.steps-bar { fill: var(--series-1); }
 
 /* ---------- supplements ---------- */
 .supplement-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }

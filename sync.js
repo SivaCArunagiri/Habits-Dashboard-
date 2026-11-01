@@ -56,9 +56,14 @@ function mergeStates(local, remote) {
         : Object.assign({}, merged[key][id], remoteMap[id]);
     });
   });
-  merged.notes = localIsNewer
-    ? Object.assign({}, remote.notes || {}, merged.notes || {})
-    : Object.assign({}, merged.notes || {}, remote.notes || {});
+  // Flat date/key -> primitive maps (not nested per-habit) merge at the top
+  // level instead — Object.assign-ing individual primitive values the way
+  // the nested loop above does would silently drop them.
+  ['notes', 'stepLogs', 'stepWeeklyTargets'].forEach(key => {
+    merged[key] = localIsNewer
+      ? Object.assign({}, remote[key] || {}, merged[key] || {})
+      : Object.assign({}, merged[key] || {}, remote[key] || {});
+  });
   merged.updatedAt = Math.max(Number(local.updatedAt) || 0, Number(remote.updatedAt) || 0);
   return merged;
 }

@@ -157,6 +157,31 @@
     </div>
   </section>
 
+  <section class="panel" aria-label="Steps">
+    <div class="panel-header">
+      <h2>Steps</h2>
+    </div>
+    <label class="field">
+      <span class="field-label" id="steps-yesterday-label">Yesterday's steps</span>
+      <input type="number" id="steps-yesterday-input" min="0" step="1" inputmode="numeric" placeholder="e.g., 8500">
+    </label>
+    <span id="steps-saved" class="field-hint note-saved" hidden>Saved</span>
+
+    <label class="field">
+      <span class="field-label">This week's target (steps/day)</span>
+      <input type="number" id="steps-target-input" min="0" step="1" inputmode="numeric" placeholder="e.g., 10000">
+    </label>
+    <p class="memento-stat-line" id="steps-weekly-total"></p>
+    <p class="memento-stat-line" id="steps-pace-line"></p>
+
+    <div class="burndown-legend">
+      <span class="burndown-legend-item"><span class="burndown-legend-swatch steps"></span>Steps</span>
+      <span class="burndown-legend-item"><span class="burndown-legend-swatch ideal"></span>Daily target</span>
+    </div>
+    <div id="steps-chart"></div>
+    <p class="memento-stat-line" id="steps-sum-line"></p>
+  </section>
+
   <section class="panel" aria-label="Day counters">
     <div class="panel-header">
       <h2>Day counters</h2>
