@@ -2932,6 +2932,79 @@
 
     $('#steps-sum-line').textContent = `${loggedSoFar.toLocaleString()} steps logged so far this week`;
     renderStepsChart(weekDates, typeof target === 'number' ? target : 0);
+    renderStepsHistoryChart();
+  }
+
+  function pastWeeksData(limit) {
+    const todayWeekStart = startOfWeek(todayDate());
+    const weeks = [];
+    for (let i = limit; i >= 1; i--) {
+      const start = addDays(todayWeekStart, -7 * i);
+      const dates = Array.from({ length: 7 }, (_, d) => addDays(start, d));
+      const total = dates.reduce((sum, d) => {
+        const v = state.stepLogs[fmt(d)];
+        return sum + (typeof v === 'number' ? v : 0);
+      }, 0);
+      const perDayTarget = state.stepWeeklyTargets[fmt(start)];
+      weeks.push({ start, total, targetTotal: typeof perDayTarget === 'number' ? perDayTarget * 7 : null });
+    }
+    return weeks;
+  }
+
+  function renderStepsHistoryChart() {
+    const container = $('#steps-history-chart');
+    container.innerHTML = '';
+    const weeks = pastWeeksData(8);
+    const maxVal = Math.max(1, ...weeks.map(w => w.total), ...weeks.map(w => w.targetTotal || 0));
+
+    const W = 350, H = 130, PAD_X = 8, PAD_TOP = 10, PAD_BOTTOM = 22;
+    const barSlot = (W - PAD_X * 2) / weeks.length;
+    const barW = barSlot * 0.55;
+    const yScale = v => (H - PAD_BOTTOM) - (v / maxVal) * (H - PAD_BOTTOM - PAD_TOP);
+
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('class', 'steps-svg');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', 'Total steps for each of the last 8 weeks');
+
+    const baseline = document.createElementNS(SVG_NS, 'line');
+    baseline.setAttribute('x1', PAD_X); baseline.setAttribute('x2', W - PAD_X);
+    baseline.setAttribute('y1', yScale(0)); baseline.setAttribute('y2', yScale(0));
+    baseline.setAttribute('class', 'burndown-gridline');
+    svg.appendChild(baseline);
+
+    weeks.forEach((w, i) => {
+      const x = PAD_X + i * barSlot + (barSlot - barW) / 2;
+      if (w.total > 0) {
+        const barTop = yScale(w.total);
+        const barH = Math.max(0, yScale(0) - barTop);
+        const rect = document.createElementNS(SVG_NS, 'rect');
+        rect.setAttribute('x', x);
+        rect.setAttribute('y', barTop);
+        rect.setAttribute('width', barW);
+        rect.setAttribute('height', barH);
+        rect.setAttribute('rx', 4);
+        rect.setAttribute('class', 'steps-bar');
+        svg.appendChild(rect);
+      }
+      if (w.targetTotal) {
+        const tick = document.createElementNS(SVG_NS, 'line');
+        tick.setAttribute('x1', x); tick.setAttribute('x2', x + barW);
+        tick.setAttribute('y1', yScale(w.targetTotal)); tick.setAttribute('y2', yScale(w.targetTotal));
+        tick.setAttribute('class', 'burndown-ideal');
+        svg.appendChild(tick);
+      }
+      const label = document.createElementNS(SVG_NS, 'text');
+      label.setAttribute('x', x + barW / 2);
+      label.setAttribute('y', H - 6);
+      label.setAttribute('text-anchor', 'middle');
+      label.setAttribute('class', 'burndown-label');
+      label.textContent = `${w.start.getMonth() + 1}/${w.start.getDate()}`;
+      svg.appendChild(label);
+    });
+
+    container.appendChild(svg);
   }
 
   let stepsSavedTimer = null;
